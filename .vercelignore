@@ -1,0 +1,24 @@
+# Local-only development artifacts
+.git/
+.next/
+.qa/
+.venv/
+node_modules/
+*.log
+*.tsbuildinfo
+
+# Training code and bulky research datasets are kept in GitHub, not in the runtime bundle.
+ml/
+models/
+data/**
+!data/futures/
+data/futures/**
+!data/futures/BTCUSDT_4h.csv
+
+# Keep only the reports read by app/api/model-status at runtime.
+reports/**
+!reports/walk-forward-model-pool.json
+!reports/forward-validation.json
+!reports/walk-forward-principles.json
+!reports/principle-rule-audit.json
+

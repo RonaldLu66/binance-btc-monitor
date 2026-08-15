@@ -4,6 +4,7 @@ import { getTradingViewHistory } from '../../tradingview-history';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+export const maxDuration = 30;
 
 type Interval = '15m' | '1h' | '4h' | '1d';
 type Direction = 'bullish' | 'bearish' | 'neutral';

@@ -3,6 +3,7 @@ import { getFuturesSnapshot, type FuturesInterval } from '../../futures-stream';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+export const maxDuration = 20;
 
 const source = {
   label: 'Binance Spot (futures endpoint unavailable)',
