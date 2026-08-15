@@ -1,0 +1,203 @@
+{
+  "interval": "4h",
+  "trained_at": "2026-08-13T16:01:53.394937+00:00",
+  "model_type": "LightGBM binary direction with confidence gate",
+  "features": [
+    "return_1",
+    "return_3",
+    "return_6",
+    "return_12",
+    "return_24",
+    "range_atr",
+    "body_atr",
+    "upper_wick_atr",
+    "lower_wick_atr",
+    "close_location",
+    "ema_gap_5",
+    "ema_gap_12",
+    "ema_gap_20",
+    "ema_gap_50",
+    "ema_gap_100",
+    "ema_gap_200",
+    "ema_20_50",
+    "ema_50_200",
+    "macd_atr",
+    "macd_signal_atr",
+    "macd_hist_atr",
+    "macd_hist_delta",
+    "macd_above_zero",
+    "macd_gold_cross",
+    "macd_death_cross",
+    "macd_water_above_gold",
+    "macd_water_below_gold",
+    "macd_water_above_death",
+    "macd_water_below_death",
+    "rsi_14",
+    "macd_bull_divergence",
+    "macd_bear_divergence",
+    "rsi_bull_divergence",
+    "rsi_bear_divergence",
+    "volume_zscore",
+    "relative_volume",
+    "obv_slope_20",
+    "cmf_20",
+    "volume_price_corr_20",
+    "taker_buy_ratio",
+    "breakout_up_20",
+    "breakout_down_20",
+    "false_breakout_up",
+    "spring_break_low",
+    "range_position_20",
+    "range_contraction",
+    "high_slope_20",
+    "low_slope_20",
+    "head_shoulders_top",
+    "head_shoulders_bottom",
+    "double_top_similarity",
+    "double_bottom_similarity",
+    "flag_pole_ratio",
+    "ctx_1d_return_6",
+    "ctx_1d_return_24",
+    "ctx_1d_ema_gap_20",
+    "ctx_1d_ema_gap_50",
+    "ctx_1d_ema_20_50",
+    "ctx_1d_ema_50_200",
+    "ctx_1d_macd_atr",
+    "ctx_1d_macd_hist_atr",
+    "ctx_1d_macd_hist_delta",
+    "ctx_1d_macd_above_zero",
+    "ctx_1d_macd_gold_cross",
+    "ctx_1d_macd_death_cross",
+    "ctx_1d_macd_bull_divergence",
+    "ctx_1d_macd_bear_divergence",
+    "ctx_1d_rsi_14",
+    "ctx_1d_rsi_bull_divergence",
+    "ctx_1d_rsi_bear_divergence",
+    "ctx_1d_relative_volume",
+    "ctx_1d_obv_slope_20",
+    "ctx_1d_cmf_20",
+    "ctx_1d_taker_buy_ratio",
+    "ctx_1d_range_position_20",
+    "ctx_1d_range_contraction",
+    "ctx_1d_breakout_up_20",
+    "ctx_1d_breakout_down_20",
+    "ctx_1d_false_breakout_up",
+    "ctx_1d_spring_break_low",
+    "ctx_1d_flag_pole_ratio"
+  ],
+  "rows": 11027,
+  "development_rows": 9042,
+  "evaluation_rows": 1961,
+  "evaluation_start": 1757649600000,
+  "evaluation_end": 1785916800000,
+  "selected_params": {
+    "num_leaves": 15,
+    "learning_rate": 0.03,
+    "min_child_samples": 100,
+    "feature_fraction": 0.75
+  },
+  "selected_confidence_quantile": 0.9,
+  "walk_forward": {
+    "mean_auc": 0.5841682585276402,
+    "signals": 47,
+    "coverage": 0.016246111303145523,
+    "hit_rate": 0.7021276595744681,
+    "mean_return": 0.010050186654083257,
+    "profit_factor": 2.6277170328563093,
+    "total_return_additive": 0.47235877274191307,
+    "max_drawdown_additive": -0.054865054851940404,
+    "rows": 3616
+  },
+  "calibration": {
+    "rows": 1062,
+    "method": "causal rolling confidence quantile; labels unused"
+  },
+  "evaluation": {
+    "auc": 0.5004223430404533,
+    "majority_accuracy": 0.5181030086690463,
+    "signals": 31,
+    "coverage": 0.01580826109127996,
+    "hit_rate": 0.5483870967741935,
+    "mean_return": 0.00017163412396908857,
+    "profit_factor": 1.0181933021085796,
+    "total_return_additive": 0.005320657843041745,
+    "max_drawdown_additive": -0.17545934027103793
+  },
+  "quality_gate": {
+    "approved_for_live_display": false,
+    "minimum_evaluation_signals": 20,
+    "status": "watch_only"
+  },
+  "label": {
+    "entry": "next_bar_open",
+    "horizon_bars": 24,
+    "barrier_atr": 1.5,
+    "same_bar_both_barriers": "excluded"
+  },
+  "cost": {
+    "round_trip_fraction": 0.0008
+  },
+  "caveat": "Development walk-forward evaluation; prior linear baseline exposed the same broad terminal period. Future paper-trading is required before capital use.",
+  "feature_importance": [
+    [
+      "ctx_1d_cmf_20",
+      109
+    ],
+    [
+      "ctx_1d_obv_slope_20",
+      90
+    ],
+    [
+      "ctx_1d_range_contraction",
+      89
+    ],
+    [
+      "ctx_1d_ema_50_200",
+      57
+    ],
+    [
+      "ctx_1d_flag_pole_ratio",
+      49
+    ],
+    [
+      "ema_gap_200",
+      41
+    ],
+    [
+      "ema_gap_100",
+      40
+    ],
+    [
+      "ctx_1d_ema_20_50",
+      39
+    ],
+    [
+      "ctx_1d_taker_buy_ratio",
+      39
+    ],
+    [
+      "ctx_1d_macd_atr",
+      38
+    ],
+    [
+      "double_top_similarity",
+      34
+    ],
+    [
+      "flag_pole_ratio",
+      34
+    ],
+    [
+      "ctx_1d_return_24",
+      34
+    ],
+    [
+      "volume_price_corr_20",
+      33
+    ],
+    [
+      "ctx_1d_rsi_14",
+      33
+    ]
+  ]
+}

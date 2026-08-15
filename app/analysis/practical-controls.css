@@ -1,0 +1,48 @@
+.analysis-page{width:100%;min-width:0;overflow-x:hidden}
+.analysis-header-main{min-width:0}
+.analysis-page .eyebrow{letter-spacing:0}
+.top-current-price{margin-top:8px}
+.top-current-price>strong{display:block;font-size:48px;line-height:1.05;color:#f4f8fc;font-variant-numeric:tabular-nums;letter-spacing:0}
+.top-current-price>div{display:flex;align-items:center;gap:12px;margin-top:8px;color:#7890a9;font-size:11px}
+.top-current-price time{color:#7fe0b7}
+.analysis-header h1{margin:22px 0 0;color:#f4f8fc;font-size:34px;font-weight:800;line-height:1.2;letter-spacing:0}
+.live-controls{display:flex;align-items:center;gap:14px;margin:22px 0 16px;padding:13px 14px;border:1px solid #1d3449;border-radius:8px;background:#0a1928}
+.live-control-status{display:flex;align-items:center;gap:10px;margin-right:auto}
+.live-control-status>i{width:9px;height:9px;border-radius:50%;background:#e0a13d;box-shadow:0 0 0 4px #3a2d18}
+.live-control-status.connected>i{background:#35d399;box-shadow:0 0 0 4px #143a31}
+.live-control-status strong,.live-control-status span{display:block}
+.live-control-status strong{font-size:13px}
+.live-control-status span{margin-top:3px;color:#7890a9;font-size:11px}
+.auto-refresh-switch{display:flex;align-items:center;gap:8px;color:#a8bbcc;font-size:12px;cursor:pointer;white-space:nowrap}
+.auto-refresh-switch input{width:17px;height:17px;accent-color:#35d399;cursor:pointer}
+.live-actions{display:flex;align-items:center;gap:14px}
+.live-controls .analyze-button{padding:10px 15px;border-radius:6px}
+.market-focus{display:grid;grid-template-columns:1.25fr .75fr;gap:24px;align-items:center;margin-top:14px;padding:22px 24px;border:1px solid #916b26;border-radius:8px;background:#241d12}
+.market-focus>div:first-child>span{display:block;color:#e4b85e;font-size:12px;font-weight:800;margin-bottom:7px}
+.market-focus>div:first-child>strong{display:block;color:#ffe0a0;font-size:27px;line-height:1.2}
+.market-focus>div{min-width:0}
+.market-focus>div:first-child>p{max-width:100%;margin:9px 0 0;color:#c6b28a;font-size:13px;line-height:1.6;white-space:normal;word-break:break-all;overflow-wrap:anywhere}
+.market-focus.up{border-color:#2d745d;background:#10261f}
+.market-focus.up>div:first-child>span,.market-focus.up>div:first-child>strong{color:#72ddb4}
+.market-focus.up>div:first-child>p{color:#9ec5b6}
+.market-focus.down{border-color:#803449;background:#28161d}
+.market-focus.down>div:first-child>span,.market-focus.down>div:first-child>strong{color:#ff8fa5}
+.market-focus.down>div:first-child>p{color:#c7a1aa}
+.nearest-levels{display:grid;grid-template-columns:1fr 1fr;border-left:1px solid #46505a}
+.nearest-levels article{min-width:0;padding:6px 14px}
+.nearest-levels article+article{border-left:1px solid #46505a}
+.nearest-levels span,.nearest-levels b,.nearest-levels small{display:block}
+.nearest-levels span{color:#8499ac;font-size:10px;margin-bottom:6px}
+.nearest-levels b{font-size:16px;white-space:nowrap}
+.nearest-levels small{margin-top:6px;color:#8499ac;font-size:10px;line-height:1.4}
+.direct-verdict{display:block;padding:22px 24px;border-radius:8px}
+.verdict-copy h2{font-size:28px;margin:7px 0 9px}
+.verdict-copy p{max-width:100%;line-height:1.55;white-space:normal;word-break:break-all;overflow-wrap:anywhere}
+.verdict-price strong{font-size:34px}
+.confirmation-checks span.provisional,.tf-confirmations span.provisional{background:#3a301d;color:#ffd28b}
+.confirmation-checks span.unavailable,.tf-confirmations span.unavailable{background:#202b36;color:#7890a9}
+.evidence-list div.provisional{border-color:#b4862e;background:#2b2415}.evidence-list div.unavailable{border-color:#46596a;background:#17212b}
+.evidence-list .provisional b{color:#ffd28b}.evidence-list .unavailable b{color:#8296a8}
+.form-analysis .indicator-verdict.provisional{background:#3a301d;color:#ffd28b}
+@media(max-width:720px){.top-current-price>strong{font-size:43px}.analysis-header h1{margin-top:18px;font-size:29px}.live-controls{display:block}.live-control-status{width:100%;margin-bottom:16px}.live-actions{width:100%;justify-content:space-between}.auto-refresh-switch{margin-right:auto}.live-actions .analyze-button{display:inline-flex;flex:none;width:auto!important;margin:0!important}.market-focus{grid-template-columns:1fr}.nearest-levels{border-left:0;border-top:1px solid #46505a;padding-top:14px}.nearest-levels article:first-child{padding-left:0}.market-focus>div:first-child>strong{font-size:23px}}
+@media(max-width:420px){.market-focus{padding:18px 14px}.nearest-levels{grid-template-columns:1fr}.nearest-levels article{padding:10px 0}.nearest-levels article+article{border-left:0;border-top:1px solid #46505a}.nearest-levels b{white-space:normal}}

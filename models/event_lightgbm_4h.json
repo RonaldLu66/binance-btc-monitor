@@ -1,0 +1,269 @@
+{
+  "interval": "4h",
+  "model_type": "LightGBM meta-label model for technical pattern events",
+  "trained_at": "2026-08-13T16:22:12.468649+00:00",
+  "rows": 3219,
+  "features": [
+    "return_1",
+    "return_3",
+    "return_6",
+    "return_12",
+    "return_24",
+    "range_atr",
+    "body_atr",
+    "upper_wick_atr",
+    "lower_wick_atr",
+    "close_location",
+    "ema_gap_5",
+    "ema_gap_12",
+    "ema_gap_20",
+    "ema_gap_50",
+    "ema_gap_100",
+    "ema_gap_200",
+    "ema_20_50",
+    "ema_50_200",
+    "macd_atr",
+    "macd_signal_atr",
+    "macd_hist_atr",
+    "macd_hist_delta",
+    "macd_above_zero",
+    "macd_gold_cross",
+    "macd_death_cross",
+    "macd_water_above_gold",
+    "macd_water_below_gold",
+    "macd_water_above_death",
+    "macd_water_below_death",
+    "rsi_14",
+    "macd_bull_divergence",
+    "macd_bear_divergence",
+    "rsi_bull_divergence",
+    "rsi_bear_divergence",
+    "volume_zscore",
+    "relative_volume",
+    "obv_slope_20",
+    "cmf_20",
+    "volume_price_corr_20",
+    "taker_buy_ratio",
+    "breakout_up_20",
+    "breakout_down_20",
+    "false_breakout_up",
+    "spring_break_low",
+    "range_position_20",
+    "range_contraction",
+    "high_slope_20",
+    "low_slope_20",
+    "head_shoulders_top",
+    "head_shoulders_bottom",
+    "double_top_similarity",
+    "double_bottom_similarity",
+    "flag_pole_ratio",
+    "ctx_1d_return_6",
+    "ctx_1d_return_24",
+    "ctx_1d_ema_gap_20",
+    "ctx_1d_ema_gap_50",
+    "ctx_1d_ema_20_50",
+    "ctx_1d_ema_50_200",
+    "ctx_1d_macd_atr",
+    "ctx_1d_macd_hist_atr",
+    "ctx_1d_macd_hist_delta",
+    "ctx_1d_macd_above_zero",
+    "ctx_1d_macd_gold_cross",
+    "ctx_1d_macd_death_cross",
+    "ctx_1d_macd_bull_divergence",
+    "ctx_1d_macd_bear_divergence",
+    "ctx_1d_rsi_14",
+    "ctx_1d_rsi_bull_divergence",
+    "ctx_1d_rsi_bear_divergence",
+    "ctx_1d_relative_volume",
+    "ctx_1d_obv_slope_20",
+    "ctx_1d_cmf_20",
+    "ctx_1d_taker_buy_ratio",
+    "ctx_1d_range_position_20",
+    "ctx_1d_range_contraction",
+    "ctx_1d_breakout_up_20",
+    "ctx_1d_breakout_down_20",
+    "ctx_1d_false_breakout_up",
+    "ctx_1d_spring_break_low",
+    "ctx_1d_flag_pole_ratio",
+    "funding_rate",
+    "funding_change",
+    "funding_sum_3",
+    "funding_z_30",
+    "oi_log",
+    "oi_change_1",
+    "oi_change_3",
+    "oi_change_6",
+    "oi_value_change_3",
+    "count_toptrader_long_short_ratio",
+    "count_toptrader_long_short_ratio_change",
+    "count_toptrader_long_short_ratio_z_30",
+    "sum_toptrader_long_short_ratio",
+    "sum_toptrader_long_short_ratio_change",
+    "sum_toptrader_long_short_ratio_z_30",
+    "count_long_short_ratio",
+    "count_long_short_ratio_change",
+    "count_long_short_ratio_z_30",
+    "sum_taker_long_short_vol_ratio",
+    "sum_taker_long_short_vol_ratio_change",
+    "sum_taker_long_short_vol_ratio_z_30",
+    "price_oi_same_direction",
+    "price_up_oi_up",
+    "price_down_oi_up",
+    "price_up_oi_down",
+    "price_down_oi_down",
+    "event_side",
+    "event_strength",
+    "long_score",
+    "short_score",
+    "event_type"
+  ],
+  "development_rows": 2575,
+  "evaluation_rows": 620,
+  "evaluation_start": 1760774400000,
+  "evaluation_end": 1784116800000,
+  "selected_params": {
+    "num_leaves": 31,
+    "learning_rate": 0.05,
+    "min_child_samples": 250,
+    "feature_fraction": 0.9
+  },
+  "walk_forward_quantile": 0.9,
+  "walk_forward_threshold": 0.4861347294434906,
+  "calibrated_quantile": 0.6,
+  "threshold": 0.4185000876859279,
+  "walk_forward": {
+    "auc": 0.5429025327907819,
+    "signals": 69,
+    "hit_rate": 0.5217391304347826,
+    "coverage": 0.060954063604240286,
+    "mean_return": 0.004411749243754437,
+    "profit_factor": 1.5490296460838495,
+    "total_return_additive": 0.30441069781905616,
+    "max_drawdown_additive": -0.09581630493135967,
+    "rows": 1132
+  },
+  "calibration": {
+    "signals": 38,
+    "hit_rate": 0.5526315789473685,
+    "coverage": 0.13333333333333333,
+    "mean_return": 0.0026054114205167726,
+    "profit_factor": 1.5520141562820446,
+    "total_return_additive": 0.09900563397963735,
+    "max_drawdown_additive": -0.0437962190742167,
+    "rows": 285
+  },
+  "evaluation": {
+    "auc": 0.5074312608372553,
+    "signals": 94,
+    "hit_rate": 0.3829787234042553,
+    "coverage": 0.15161290322580645,
+    "mean_return": -0.0015471581082652877,
+    "profit_factor": 0.8463861329132102,
+    "total_return_additive": -0.14543286217693704,
+    "max_drawdown_additive": -0.25398087993176355
+  },
+  "raw_rule_baseline": {
+    "signals": 130,
+    "hit_rate": 0.4230769230769231,
+    "coverage": 0.20967741935483872,
+    "mean_return": 0.0004554967330290898,
+    "profit_factor": 1.050708850199784,
+    "total_return_additive": 0.05921457529378167,
+    "max_drawdown_additive": -0.16204332363633744
+  },
+  "quality_gate": {
+    "status": "watch_only",
+    "approved_for_live_display": false,
+    "minimum_signals": 15
+  },
+  "target": {
+    "target_atr": 1.5,
+    "stop_atr": 1.0,
+    "horizon_bars": 24,
+    "entry": "next_bar_open",
+    "cost": 0.0008
+  },
+  "feature_importance": [
+    [
+      "oi_log",
+      2
+    ],
+    [
+      "macd_signal_atr",
+      1
+    ],
+    [
+      "sum_taker_long_short_vol_ratio",
+      1
+    ],
+    [
+      "return_1",
+      0
+    ],
+    [
+      "return_3",
+      0
+    ],
+    [
+      "return_6",
+      0
+    ],
+    [
+      "return_12",
+      0
+    ],
+    [
+      "return_24",
+      0
+    ],
+    [
+      "range_atr",
+      0
+    ],
+    [
+      "body_atr",
+      0
+    ],
+    [
+      "upper_wick_atr",
+      0
+    ],
+    [
+      "lower_wick_atr",
+      0
+    ],
+    [
+      "close_location",
+      0
+    ],
+    [
+      "ema_gap_5",
+      0
+    ],
+    [
+      "ema_gap_12",
+      0
+    ],
+    [
+      "ema_gap_20",
+      0
+    ],
+    [
+      "ema_gap_50",
+      0
+    ],
+    [
+      "ema_gap_100",
+      0
+    ],
+    [
+      "ema_gap_200",
+      0
+    ],
+    [
+      "ema_20_50",
+      0
+    ]
+  ],
+  "caveat": "Development event-model evaluation. Requires future paper-trading before capital use."
+}

@@ -1,0 +1,182 @@
+{
+  "interval": "15m",
+  "trained_at": "2026-08-13T15:59:16.194485+00:00",
+  "model_type": "LightGBM binary direction with confidence gate",
+  "features": [
+    "return_1",
+    "return_3",
+    "return_6",
+    "return_12",
+    "return_24",
+    "range_atr",
+    "body_atr",
+    "upper_wick_atr",
+    "lower_wick_atr",
+    "close_location",
+    "ema_gap_5",
+    "ema_gap_12",
+    "ema_gap_20",
+    "ema_gap_50",
+    "ema_gap_100",
+    "ema_gap_200",
+    "ema_20_50",
+    "ema_50_200",
+    "macd_atr",
+    "macd_signal_atr",
+    "macd_hist_atr",
+    "macd_hist_delta",
+    "macd_above_zero",
+    "macd_gold_cross",
+    "macd_death_cross",
+    "macd_water_above_gold",
+    "macd_water_below_gold",
+    "macd_water_above_death",
+    "macd_water_below_death",
+    "rsi_14",
+    "macd_bull_divergence",
+    "macd_bear_divergence",
+    "rsi_bull_divergence",
+    "rsi_bear_divergence",
+    "volume_zscore",
+    "relative_volume",
+    "obv_slope_20",
+    "cmf_20",
+    "volume_price_corr_20",
+    "taker_buy_ratio",
+    "breakout_up_20",
+    "breakout_down_20",
+    "false_breakout_up",
+    "spring_break_low",
+    "range_position_20",
+    "range_contraction",
+    "high_slope_20",
+    "low_slope_20",
+    "head_shoulders_top",
+    "head_shoulders_bottom",
+    "double_top_similarity",
+    "double_bottom_similarity",
+    "flag_pole_ratio"
+  ],
+  "rows": 195541,
+  "development_rows": 160343,
+  "evaluation_rows": 35174,
+  "evaluation_start": 1754790300000,
+  "evaluation_end": 1786590900000,
+  "selected_params": {
+    "num_leaves": 31,
+    "learning_rate": 0.03,
+    "min_child_samples": 150,
+    "feature_fraction": 0.8
+  },
+  "walk_forward_threshold": 0.6,
+  "selected_threshold": 0.6,
+  "walk_forward": {
+    "mean_auc": 0.525188919962874,
+    "signals": 81,
+    "coverage": 0.0012629412498440813,
+    "hit_rate": 0.7777777777777778,
+    "mean_return": 0.0016920898081364407,
+    "profit_factor": 2.309405098162399,
+    "total_return_additive": 0.1370592744590517,
+    "max_drawdown_additive": -0.02663209025273012,
+    "rows": 64136
+  },
+  "calibration": {
+    "signals": 0,
+    "coverage": 0.0,
+    "hit_rate": 0.0,
+    "mean_return": 0.0,
+    "profit_factor": 0.0,
+    "total_return_additive": 0.0,
+    "max_drawdown_additive": 0.0,
+    "rows": 19218
+  },
+  "evaluation": {
+    "auc": 0.5080831430031209,
+    "majority_accuracy": 0.5121112185136749,
+    "signals": 0,
+    "coverage": 0.0,
+    "hit_rate": 0.0,
+    "mean_return": 0.0,
+    "profit_factor": 0.0,
+    "total_return_additive": 0.0,
+    "max_drawdown_additive": 0.0
+  },
+  "quality_gate": {
+    "approved_for_live_display": false,
+    "minimum_evaluation_signals": 351,
+    "status": "watch_only"
+  },
+  "label": {
+    "entry": "next_bar_open",
+    "horizon_bars": 24,
+    "barrier_atr": 1.5,
+    "same_bar_both_barriers": "excluded"
+  },
+  "cost": {
+    "round_trip_fraction": 0.0008
+  },
+  "caveat": "Development walk-forward evaluation; prior linear baseline exposed the same broad terminal period. Future paper-trading is required before capital use.",
+  "feature_importance": [
+    [
+      "ema_20_50",
+      20
+    ],
+    [
+      "return_24",
+      15
+    ],
+    [
+      "volume_price_corr_20",
+      14
+    ],
+    [
+      "ema_gap_200",
+      13
+    ],
+    [
+      "ema_50_200",
+      13
+    ],
+    [
+      "range_contraction",
+      10
+    ],
+    [
+      "obv_slope_20",
+      9
+    ],
+    [
+      "double_bottom_similarity",
+      8
+    ],
+    [
+      "macd_signal_atr",
+      7
+    ],
+    [
+      "low_slope_20",
+      7
+    ],
+    [
+      "ema_gap_50",
+      5
+    ],
+    [
+      "macd_atr",
+      5
+    ],
+    [
+      "macd_hist_atr",
+      5
+    ],
+    [
+      "rsi_14",
+      5
+    ],
+    [
+      "double_top_similarity",
+      5
+    ]
+  ]
+}

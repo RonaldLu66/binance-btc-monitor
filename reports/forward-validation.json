@@ -1,0 +1,73 @@
+{
+  "started_at": "2026-08-13T16:29:24.323256+00:00",
+  "status": "collecting",
+  "signals": [
+    {
+      "open_time": 1784188800000,
+      "time": "2026-07-16T08:00:00+00:00",
+      "side": "long",
+      "event_type": 9,
+      "probability": 0.4185000876859279,
+      "threshold": 0.4185000876859279,
+      "entry": 64226.6,
+      "target": 65245.973297961704,
+      "stop": 63547.01780135886,
+      "resolved": true,
+      "ambiguous": false,
+      "success": false,
+      "return_after_cost": -0.011381008470651354,
+      "bars_to_exit": 4
+    },
+    {
+      "open_time": 1784534400000,
+      "time": "2026-07-20T08:00:00+00:00",
+      "side": "long",
+      "event_type": 11,
+      "probability": 0.4185000876859279,
+      "threshold": 0.4185000876859279,
+      "entry": 64970.8,
+      "target": 65884.72091605778,
+      "stop": 64361.519389294815,
+      "resolved": true,
+      "ambiguous": false,
+      "success": false,
+      "return_after_cost": -0.010177760635626898,
+      "bars_to_exit": 1
+    },
+    {
+      "open_time": 1785168000000,
+      "time": "2026-07-27T16:00:00+00:00",
+      "side": "long",
+      "event_type": 9,
+      "probability": 0.4185000876859279,
+      "threshold": 0.4185000876859279,
+      "entry": 64959.2,
+      "target": 65747.00166396778,
+      "stop": 64433.99889068815,
+      "resolved": true,
+      "ambiguous": false,
+      "success": false,
+      "return_after_cost": -0.00888509201640184,
+      "bars_to_exit": 1
+    }
+  ],
+  "requirements": {
+    "minimum_resolved_signals": 40,
+    "minimum_profit_factor": 1.15,
+    "minimum_mean_return": 0.0,
+    "minimum_calendar_days": 30
+  },
+  "note": "Frozen watch-only model. Forward results cannot authorize trading without independent review.",
+  "summary": {
+    "candidate_signals": 3,
+    "resolved_signals": 3,
+    "hit_rate": 0.0,
+    "mean_return": -0.010147953707560031,
+    "profit_factor": 0.0,
+    "calendar_days": 29,
+    "eligible_for_review": false
+  },
+  "updated_at": "2026-08-13T16:31:29.180944+00:00",
+  "model_cutoff": 1784116800000,
+  "model_quality_status": "watch_only"
+}

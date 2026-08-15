@@ -1,0 +1,119 @@
+{
+  "rows": 3193,
+  "predicted_rows": 1530,
+  "folds": [
+    {
+      "fit_end": 1712937600000,
+      "prediction_start": 1722816000000,
+      "prediction_end": 1732852800000,
+      "quantile": 0.925,
+      "threshold": 0.5375381529776014,
+      "calibration": {
+        "signals": 12,
+        "hit_rate": 0.6666666666666666,
+        "coverage": 0.06282722513089005,
+        "mean_return": 0.008616176741341129,
+        "profit_factor": 2.2520791715818396,
+        "total_return_additive": 0.10339412089609354,
+        "max_drawdown_additive": -0.04455213637930816
+      },
+      "prediction_rows": 255
+    },
+    {
+      "fit_end": 1722254400000,
+      "prediction_start": 1732881600000,
+      "prediction_end": 1742731200000,
+      "quantile": 0.9,
+      "threshold": 0.45125523452782706,
+      "calibration": {
+        "signals": 15,
+        "hit_rate": 0.5333333333333333,
+        "coverage": 0.06756756756756757,
+        "mean_return": 0.005032845768306851,
+        "profit_factor": 1.6900373913164104,
+        "total_return_additive": 0.07549268652460275,
+        "max_drawdown_additive": -0.05201115493161671
+      },
+      "prediction_rows": 255
+    },
+    {
+      "fit_end": 1731240000000,
+      "prediction_start": 1742774400000,
+      "prediction_end": 1752580800000,
+      "quantile": 0.9,
+      "threshold": 0.44684370273395946,
+      "calibration": {
+        "signals": 17,
+        "hit_rate": 0.47058823529411764,
+        "coverage": 0.06746031746031746,
+        "mean_return": 0.0027753600128862495,
+        "profit_factor": 1.2832476883389292,
+        "total_return_additive": 0.047181120219066244,
+        "max_drawdown_additive": -0.06629602744887139
+      },
+      "prediction_rows": 255
+    },
+    {
+      "fit_end": 1739808000000,
+      "prediction_start": 1752667200000,
+      "prediction_end": 1763136000000,
+      "quantile": 0.9,
+      "threshold": 0.5013293598031909,
+      "calibration": {
+        "signals": 22,
+        "hit_rate": 0.5909090909090909,
+        "coverage": 0.07773851590106007,
+        "mean_return": 0.005929248504313961,
+        "profit_factor": 2.0371686882419464,
+        "total_return_additive": 0.13044346709490715,
+        "max_drawdown_additive": -0.0398969216745843
+      },
+      "prediction_rows": 255
+    },
+    {
+      "fit_end": 1748851200000,
+      "prediction_start": 1763150400000,
+      "prediction_end": 1772640000000,
+      "quantile": 0.4,
+      "threshold": 0.4164574174704633,
+      "calibration": {
+        "signals": 55,
+        "hit_rate": 0.509090909090909,
+        "coverage": 0.1757188498402556,
+        "mean_return": 0.002391534743711855,
+        "profit_factor": 1.4712692467152164,
+        "total_return_additive": 0.13153441090415202,
+        "max_drawdown_additive": -0.08447972215851622
+      },
+      "prediction_rows": 255
+    },
+    {
+      "fit_end": 1757779200000,
+      "prediction_start": 1772712000000,
+      "prediction_end": 1782201600000,
+      "quantile": 0.95,
+      "threshold": 0.4541001253526428,
+      "calibration": {
+        "signals": 15,
+        "hit_rate": 0.6,
+        "coverage": 0.0436046511627907,
+        "mean_return": 0.005453979512299861,
+        "profit_factor": 1.6155055306205617,
+        "total_return_additive": 0.0818096926844979,
+        "max_drawdown_additive": -0.0636742693940972
+      },
+      "prediction_rows": 255
+    }
+  ],
+  "auc": 0.49890504001807434,
+  "signals": 125,
+  "hit_rate": 0.4,
+  "coverage": 0.08169934640522876,
+  "mean_return": -0.0006290651019437621,
+  "profit_factor": 0.9346519280685013,
+  "total_return_additive": -0.07863313774297026,
+  "max_drawdown_additive": -0.15526076957431867,
+  "approved": false,
+  "cost": 0.0008,
+  "method": "expanding-window retrain; separate long/short models; calibration and prediction separated by 24 event rows"
+}
