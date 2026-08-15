@@ -10,15 +10,11 @@ node_modules/
 # Training code and bulky research datasets are kept in GitHub, not in the runtime bundle.
 ml/
 models/
-data/**
-!data/futures/
-data/futures/**
-!data/futures/BTCUSDT_4h.csv
-
-# Keep only the reports read by app/api/model-status at runtime.
-reports/**
-!reports/walk-forward-model-pool.json
-!reports/forward-validation.json
-!reports/walk-forward-principles.json
-!reports/principle-rule-audit.json
-
+data/BTCUSDT_15m.csv
+data/BTCUSDT_1h.csv
+data/BTCUSDT_4h.csv
+data/BTCUSDT_1d.csv
+data/futures/BTCUSDT_1d.csv
+data/futures/BTCUSDT_funding.csv
+data/futures/BTCUSDT_metrics_5m.csv
+data/samples/
