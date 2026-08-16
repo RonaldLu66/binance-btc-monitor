@@ -133,6 +133,79 @@ function alternatingPivots(bars: Kline[], currentAtr: number) {
   }, []);
 }
 
+type TriangleCandidate = {
+  highs: Pivot[];
+  lows: Pivot[];
+  height: number;
+  lastIndex: number;
+};
+
+function findConvergingTriangle(highs: Pivot[], lows: Pivot[], currentAtr: number, recentLength: number) {
+  const structureNoise = currentAtr * 0.25;
+  let best: TriangleCandidate | null = null;
+  const highStartFloor = Math.max(0, highs.length - 6);
+  const lowStartFloor = Math.max(0, lows.length - 6);
+
+  for (let highStart = highStartFloor; highStart <= highs.length - 3; highStart += 1) {
+    const candidateHighs = highs.slice(highStart, highStart + 3);
+    for (let lowStart = lowStartFloor; lowStart <= lows.length - 3; lowStart += 1) {
+      const candidateLows = lows.slice(lowStart, lowStart + 3);
+      const firstIndex = Math.min(candidateHighs[0].index, candidateLows[0].index);
+      const lastIndex = Math.max(candidateHighs.at(-1)!.index, candidateLows.at(-1)!.index);
+      const highDrop = candidateHighs[0].price - candidateHighs.at(-1)!.price;
+      const lowRise = candidateLows.at(-1)!.price - candidateLows[0].price;
+      const initialRange = Math.max(...candidateHighs.map((point) => point.price))
+        - Math.min(...candidateLows.map((point) => point.price));
+      const finalRange = candidateHighs.at(-1)!.price - candidateLows.at(-1)!.price;
+      const span = lastIndex - firstIndex;
+      const recentEnough = lastIndex >= recentLength - 40;
+      const slopesValid = highDrop > structureNoise && lowRise > structureNoise;
+      const rangeContracted = initialRange > currentAtr * 1.5 && finalRange > 0
+        && finalRange <= initialRange * 0.75;
+      if (!recentEnough || span < 6 || span > 40 || !slopesValid || !rangeContracted) continue;
+      if (!best || lastIndex > best.lastIndex) {
+        best = { highs: candidateHighs, lows: candidateLows, height: initialRange, lastIndex };
+      }
+    }
+  }
+  return best;
+}
+
+function convergingTrianglePattern(
+  triangle: TriangleCandidate, currentAtr: number, lastClosed: Kline, live: Kline,
+): TechnicalPattern {
+  const upperTrigger = triangle.highs.at(-1)!.price;
+  const lowerTrigger = triangle.lows.at(-1)!.price;
+  const confirmationBuffer = currentAtr * 0.10;
+  const closedUp = lastClosed.close > upperTrigger + confirmationBuffer;
+  const closedDown = lastClosed.close < lowerTrigger - confirmationBuffer;
+  const liveUp = live.close > upperTrigger;
+  const liveDown = live.close < lowerTrigger;
+  const highText = `${formatPrice(triangle.highs[0].price)}→${formatPrice(triangle.highs.at(-1)!.price)}`;
+  const lowText = `${formatPrice(triangle.lows[0].price)}→${formatPrice(triangle.lows.at(-1)!.price)}`;
+  if (closedUp || liveUp) return {
+    name: '收敛三角形向上突破',
+    stage: closedUp ? '实体突破，等待回测确认' : '盘中突破，等待收盘确认',
+    direction: 'bullish',
+    description: `三组摆点显示上沿从 ${highText} 下移、下沿从 ${lowText} 抬高，区间由约 ${formatPrice(triangle.height)} 点收窄。当前价已越过 ${formatPrice(upperTrigger)} 上沿；先看回踩 ${formatPrice(upperTrigger)} 是否守住，守住才算突破有效。`,
+    trigger: upperTrigger, target: upperTrigger + triangle.height, target2: upperTrigger + triangle.height * 2,
+    invalidation: lowerTrigger,
+  };
+  if (closedDown || liveDown) return {
+    name: '收敛三角形向下突破',
+    stage: closedDown ? '实体跌破，等待反抽确认' : '盘中跌破，等待收盘确认',
+    direction: 'bearish',
+    description: `三组摆点显示上沿从 ${highText} 下移、下沿从 ${lowText} 抬高，区间由约 ${formatPrice(triangle.height)} 点收窄。当前价已跌破 ${formatPrice(lowerTrigger)} 下沿；先看反抽 ${formatPrice(lowerTrigger)} 是否站不回，站不回才算跌破有效。`,
+    trigger: lowerTrigger, target: lowerTrigger - triangle.height, target2: lowerTrigger - triangle.height * 2,
+    invalidation: upperTrigger,
+  };
+  return {
+    name: '收敛三角形', stage: '收敛中，等待实体选择方向', direction: 'neutral',
+    description: `三组摆点显示上沿从 ${highText} 下移、下沿从 ${lowText} 抬高，区间由约 ${formatPrice(triangle.height)} 点收窄。现价仍在 ${formatPrice(lowerTrigger)}–${formatPrice(upperTrigger)} 之间，未破线前不预设方向。`,
+    trigger: null, target: null, target2: null, invalidation: null,
+  };
+}
+
 function detectSecondLeg(
   closed: Kline[], live: Kline, currentAtr: number, direction: 'bullish' | 'bearish', liveBarClosed: boolean,
 ): WaveStructure | null {
@@ -231,7 +304,8 @@ function technicalForm(
   closedBreakout: boolean, closedBreakdown: boolean, relativeVolume: number,
 ): TechnicalPattern {
   const recent = [...closed.slice(-80), live];
-  const swingPoints = pivots(recent);
+  const currentAtr = atr(closed);
+  const swingPoints = alternatingPivots(recent, currentAtr);
   const highs = swingPoints.filter((pivot) => pivot.kind === 'high');
   const lows = swingPoints.filter((pivot) => pivot.kind === 'low');
   const lastHighs = highs.slice(-3);
@@ -281,7 +355,6 @@ function technicalForm(
     };
   }
 
-  const currentAtr = atr(closed);
   const island = findIslandReversal(closed, currentAtr * 0.05);
   if (island) {
     const firstTarget = island.direction === 'bullish' ? island.trigger + island.height : island.trigger - island.height;
@@ -402,6 +475,9 @@ function technicalForm(
     }
   }
 
+  const triangle = findConvergingTriangle(highs, lows, currentAtr, recent.length);
+  if (triangle) return convergingTrianglePattern(triangle, currentAtr, lastClosed, live);
+
   if (closedBreakdown) return {
     name: relativeVolume >= bullishVolumeThreshold ? '放量跌破整理区' : '跌破整理区', stage: '实体收盘跌破，已经确认', direction: 'bearish',
     description: `上一根K线收在 ${formatPrice(closed.at(-1)!.close)}，跌破区间下沿 ${formatPrice(previousSupport)} 共 ${formatPrice(previousSupport - closed.at(-1)!.close)} 点。${bearishVolumeText}当前价${pricePosition(live.close, previousSupport)}，反抽不能收回下沿，跌破才继续有效。`,
@@ -488,7 +564,7 @@ function calculatePattern(pattern: TechnicalPattern): PatternCalculation {
     return {
       calculable: false,
       active: false,
-      method: pattern.name === '收敛三角形'
+      method: pattern.name.includes('收敛三角形')
         ? '等待实体选择突破方向后，再按三角形最宽高度投射'
         : '当前结构没有可靠的固定涨跌幅，不强行计算目标',
       height: null,
@@ -497,7 +573,9 @@ function calculatePattern(pattern: TechnicalPattern): PatternCalculation {
     };
   }
 
-  const method = pattern.name.includes('头肩') || pattern.name === 'W底' || pattern.name === 'M头'
+  const method = pattern.name.includes('收敛三角形')
+    ? '突破线加减三角形最宽高度'
+    : pattern.name.includes('头肩') || pattern.name === 'W底' || pattern.name === 'M头'
     ? '颈线加减形态高度'
     : pattern.name.includes('旗形')
       ? '突破线加减前一段旗杆长度'
