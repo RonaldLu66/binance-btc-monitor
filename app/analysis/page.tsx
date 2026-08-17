@@ -223,13 +223,21 @@ export default function AnalysisPage() {
     {error && <div className="error">{error}</div>}
     {!analysis && !loading && <section className="direct-empty"><b>暂时没有分析结果</b><span>检查行情连接，或点击“立即刷新”重试。</span></section>}
     {analysis && <>
-      <MarketChart
-        interval={selectedInterval}
-        analysis={analysis.analyses[selectedInterval]}
-        currentPrice={analysis.currentPrice}
-        markPrice={analysis.contract.markPrice}
-        position={position}
-      />
+      <section className="chart-workspace">
+        <div className="chart-timeframes">
+          <div><span>选择周期，下面K线和形态说明会同步切换</span><b>周期形态</b></div>
+          <div className="pattern-tabs" role="tablist" aria-label="K线周期">
+            {intervals.map((interval) => <button type="button" role="tab" aria-selected={selectedInterval === interval} className={selectedInterval === interval ? 'active' : ''} onClick={() => setSelectedInterval(interval)} key={interval}><b>{analysis.analyses[interval].label}</b><span>{analysis.analyses[interval].technicalForm.name}</span></button>)}
+          </div>
+        </div>
+        <MarketChart
+          interval={selectedInterval}
+          analysis={analysis.analyses[selectedInterval]}
+          currentPrice={analysis.currentPrice}
+          markPrice={analysis.contract.markPrice}
+          position={position}
+        />
+      </section>
       <PositionPanel position={position} onChange={setPosition} analysis={analysis} markPrice={analysis.contract.markPrice} />
       <section className={`direct-verdict ${analysis.overallBias}`}>
         <div className="verdict-copy"><span>一句话结论</span><h2>{stance}</h2><p>{plainSummary}</p></div>
@@ -242,10 +250,7 @@ export default function AnalysisPage() {
         </div>
       </section>}
       <section className="current-patterns">
-        <div className="current-patterns-heading"><div><span>实时识别结果</span><h2>当前形态</h2></div><p>切换周期查看形态、确认条件和量度点位。</p></div>
-        <div className="pattern-tabs" role="tablist" aria-label="K线周期">
-          {intervals.map((interval) => <button type="button" role="tab" aria-selected={selectedInterval === interval} className={selectedInterval === interval ? 'active' : ''} onClick={() => setSelectedInterval(interval)} key={interval}><b>{analysis.analyses[interval].label}</b><span>{analysis.analyses[interval].technicalForm.name}</span></button>)}
-        </div>
+        <div className="current-patterns-heading"><div><span>实时识别结果</span><h2>{analysis.analyses[selectedInterval].label}形态说明</h2></div><p>形态线已经画在上方K线图；这里补充确认条件、量度点位和指标支持情况。</p></div>
         <div className="current-pattern-list"><CurrentPattern item={analysis.analyses[selectedInterval]} /></div>
       </section>
       <section className="exact-plan">
