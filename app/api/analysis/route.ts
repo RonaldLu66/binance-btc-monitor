@@ -14,6 +14,7 @@ type Kline = { openTime: number; closeTime: number; open: number; high: number; 
 type TechnicalPattern = {
   name: string; stage: string; direction: Direction; description: string;
   trigger: number | null; target: number | null; target2: number | null; invalidation: number | null;
+  trendlines?: { upper: Array<{ time: number; price: number }>; lower: Array<{ time: number; price: number }> };
 };
 type PatternCalculation = {
   calculable: boolean; active: boolean; method: string;
@@ -173,7 +174,7 @@ function findConvergingTriangle(highs: Pivot[], lows: Pivot[], currentAtr: numbe
 }
 
 function convergingTrianglePattern(
-  triangle: TriangleCandidate, currentAtr: number, lastClosed: Kline, live: Kline,
+  triangle: TriangleCandidate, currentAtr: number, lastClosed: Kline, live: Kline, recent: Kline[],
 ): TechnicalPattern {
   const upperTrigger = triangle.highs.at(-1)!.price;
   const lowerTrigger = triangle.lows.at(-1)!.price;
@@ -184,13 +185,17 @@ function convergingTrianglePattern(
   const liveDown = live.close < lowerTrigger;
   const highText = `${formatPrice(triangle.highs[0].price)}→${formatPrice(triangle.highs.at(-1)!.price)}`;
   const lowText = `${formatPrice(triangle.lows[0].price)}→${formatPrice(triangle.lows.at(-1)!.price)}`;
+  const trendlines = {
+    upper: triangle.highs.map((point) => ({ time: recent[point.index].openTime, price: point.price })),
+    lower: triangle.lows.map((point) => ({ time: recent[point.index].openTime, price: point.price })),
+  };
   if (closedUp || liveUp) return {
     name: '收敛三角形向上突破',
     stage: closedUp ? '实体突破，等待回测确认' : '盘中突破，等待收盘确认',
     direction: 'bullish',
     description: `三组摆点显示上沿从 ${highText} 下移、下沿从 ${lowText} 抬高，区间由约 ${formatPrice(triangle.height)} 点收窄。当前价已越过 ${formatPrice(upperTrigger)} 上沿；先看回踩 ${formatPrice(upperTrigger)} 是否守住，守住才算突破有效。`,
     trigger: upperTrigger, target: upperTrigger + triangle.height, target2: upperTrigger + triangle.height * 2,
-    invalidation: lowerTrigger,
+    invalidation: lowerTrigger, trendlines,
   };
   if (closedDown || liveDown) return {
     name: '收敛三角形向下突破',
@@ -198,12 +203,12 @@ function convergingTrianglePattern(
     direction: 'bearish',
     description: `三组摆点显示上沿从 ${highText} 下移、下沿从 ${lowText} 抬高，区间由约 ${formatPrice(triangle.height)} 点收窄。当前价已跌破 ${formatPrice(lowerTrigger)} 下沿；先看反抽 ${formatPrice(lowerTrigger)} 是否站不回，站不回才算跌破有效。`,
     trigger: lowerTrigger, target: lowerTrigger - triangle.height, target2: lowerTrigger - triangle.height * 2,
-    invalidation: upperTrigger,
+    invalidation: upperTrigger, trendlines,
   };
   return {
     name: '收敛三角形', stage: '收敛中，等待实体选择方向', direction: 'neutral',
     description: `三组摆点显示上沿从 ${highText} 下移、下沿从 ${lowText} 抬高，区间由约 ${formatPrice(triangle.height)} 点收窄。现价仍在 ${formatPrice(lowerTrigger)}–${formatPrice(upperTrigger)} 之间，未破线前不预设方向。`,
-    trigger: upperTrigger, target: null, target2: null, invalidation: lowerTrigger,
+    trigger: upperTrigger, target: null, target2: null, invalidation: lowerTrigger, trendlines,
   };
 }
 
@@ -379,6 +384,7 @@ function technicalForm(
         name: '头肩顶', stage: confirmed ? '实体收盘跌破颈线，已经确认' : '形态形成，等待实体跌破', direction: 'bearish',
         description: `左肩 ${formatPrice(left.price)}、头部 ${formatPrice(head.price)}、右肩 ${formatPrice(right.price)}，右肩与左肩相差 ${formatPercent(right.price / left.price - 1)}。颈线在 ${formatPrice(neckline)}，当前价${pricePosition(live.close, neckline)}；${confirmed ? `上一根实体已收在颈线下方，头肩顶成立，量能 ${relativeVolume.toFixed(2)} 倍只决定看空强度，不影响跌破成立。` : `还需实体收盘跌破 ${formatPrice(neckline)}。`}`,
         trigger: neckline, target: neckline - height, target2: neckline - height * 2, invalidation: right.price,
+        trendlines: { upper: [left, head, right].map((point) => ({ time: recent[point.index].openTime, price: point.price })), lower: [{ time: recent[left.index].openTime, price: neckline }, { time: recent[right.index].openTime, price: neckline }] },
       };
     }
   }
@@ -394,6 +400,7 @@ function technicalForm(
         name: '头肩底', stage: confirmed ? '实体带量突破颈线，已经确认' : priceBroken ? '实体突破但量能不足，未确认' : '形态形成，等待实体带量突破', direction: 'bullish',
         description: `左肩 ${formatPrice(left.price)}、头部 ${formatPrice(head.price)}、右肩 ${formatPrice(right.price)}，右肩与左肩相差 ${formatPercent(right.price / left.price - 1)}。颈线在 ${formatPrice(neckline)}，当前价${pricePosition(live.close, neckline)}；${confirmed ? '上一根实体已带量收在颈线上方，头肩底成立。' : priceBroken ? `实体虽已收上颈线，但成交量仅 ${relativeVolume.toFixed(2)} 倍，按规则防范假突破。` : `还需实体带量收上 ${formatPrice(neckline)}。`}`,
         trigger: neckline, target: neckline + height, target2: neckline + height * 2, invalidation: right.price,
+        trendlines: { upper: [{ time: recent[left.index].openTime, price: neckline }, { time: recent[right.index].openTime, price: neckline }], lower: [left, head, right].map((point) => ({ time: recent[point.index].openTime, price: point.price })) },
       };
     }
   }
@@ -417,6 +424,7 @@ function technicalForm(
         description: `两个低点分别是 ${formatPrice(twoLows[0].price)} 和 ${formatPrice(twoLows[1].price)}，相差 ${formatPrice(bottomGap)} 点，占形态高度 ${formatPercent(bottomGap / height)}，间隔 ${separation} 根K线；中间反弹高点形成 ${formatPrice(neckline)} 颈线。当前价${pricePosition(live.close, neckline)}；${confirmed ? `上一根实体已带量收上颈线，下一步看回踩 ${formatPrice(neckline)} 能否守住。` : priceBroken ? `实体已经收上颈线，但成交量仅 ${relativeVolume.toFixed(2)} 倍，低于${bullishVolumeThreshold.toFixed(2)}倍，按假突破防范。` : `距离颈线还差 ${formatPrice(Math.max(neckline - live.close, 0))} 点，当前只是双底雏形。`}`,
         trigger: neckline, target: neckline + height, target2: neckline + height * 2,
         invalidation: neckline,
+        trendlines: { upper: [{ time: recent[twoLows[0].index].openTime, price: neckline }, { time: recent[twoLows[1].index].openTime, price: neckline }], lower: twoLows.map((point) => ({ time: recent[point.index].openTime, price: point.price })) },
       };
     }
   }
@@ -438,6 +446,7 @@ function technicalForm(
         description: `两个高点分别是 ${formatPrice(twoHighs[0].price)} 和 ${formatPrice(twoHighs[1].price)}，相差 ${formatPrice(topGap)} 点，占形态高度 ${formatPercent(topGap / height)}，间隔 ${separation} 根K线；中间回落低点形成 ${formatPrice(neckline)} 颈线。当前价${pricePosition(live.close, neckline)}；${confirmed ? `上一根实体已收在颈线下方，M头成立；当前量能 ${relativeVolume.toFixed(2)} 倍只决定跌破强弱，不影响成立。` : `还需实体收盘跌破 ${formatPrice(neckline)}。`}`,
         trigger: neckline, target: neckline - height, target2: neckline - height * 2,
         invalidation: neckline,
+        trendlines: { upper: twoHighs.map((point) => ({ time: recent[point.index].openTime, price: point.price })), lower: [{ time: recent[twoHighs[0].index].openTime, price: neckline }, { time: recent[twoHighs[1].index].openTime, price: neckline }] },
       };
     }
   }
@@ -477,7 +486,7 @@ function technicalForm(
   }
 
   const triangle = findConvergingTriangle(highs, lows, currentAtr, recent.length);
-  if (triangle) return convergingTrianglePattern(triangle, currentAtr, lastClosed, live);
+  if (triangle) return convergingTrianglePattern(triangle, currentAtr, lastClosed, live, recent);
 
   if (closedBreakdown) return {
     name: relativeVolume >= bullishVolumeThreshold ? '放量跌破整理区' : '跌破整理区', stage: '实体收盘跌破，已经确认', direction: 'bearish',

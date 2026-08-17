@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  CandlestickSeries, ColorType, CrosshairMode, HistogramSeries, LineStyle,
+  CandlestickSeries, ColorType, CrosshairMode, HistogramSeries, LineSeries, LineStyle,
   createChart, createSeriesMarkers,
   type IChartApi, type IPriceLine, type ISeriesApi, type ISeriesMarkersPluginApi, type Time, type UTCTimestamp,
 } from 'lightweight-charts';
@@ -13,6 +13,7 @@ type Bias = 'bullish' | 'bearish' | 'neutral';
 type Pattern = {
   name: string; direction: Bias; trigger: number | null; target: number | null;
   target2: number | null; invalidation: number | null;
+  trendlines?: { upper: Array<{ time: number; price: number }>; lower: Array<{ time: number; price: number }> };
 };
 type ChartAnalysis = {
   technicalForm: Pattern; support20: number; resistance20: number;
@@ -39,6 +40,8 @@ export default function MarketChart({
   const candleRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volumeRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
+  const upperLineRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const lowerLineRef = useRef<ISeriesApi<'Line'> | null>(null);
   const priceLinesRef = useRef<IPriceLine[]>([]);
   const firstLoadRef = useRef(true);
   const [candles, setCandles] = useState<Candle[]>([]);
@@ -96,6 +99,14 @@ export default function MarketChart({
       priceFormat: { type: 'volume' }, priceScaleId: '', lastValueVisible: false, priceLineVisible: false,
     });
     volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
+    upperLineRef.current = chart.addSeries(LineSeries, {
+      color: '#5da9df', lineWidth: 2, lineStyle: LineStyle.Solid,
+      priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+    });
+    lowerLineRef.current = chart.addSeries(LineSeries, {
+      color: '#f09b63', lineWidth: 2, lineStyle: LineStyle.Solid,
+      priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+    });
     chartRef.current = chart;
     candleRef.current = candleSeries;
     volumeRef.current = volumeSeries;
@@ -107,6 +118,8 @@ export default function MarketChart({
       candleRef.current = null;
       volumeRef.current = null;
       markersRef.current = null;
+      upperLineRef.current = null;
+      lowerLineRef.current = null;
       priceLinesRef.current = [];
     };
   }, []);
@@ -134,15 +147,23 @@ export default function MarketChart({
     addLine(form.trigger, form.direction === 'neutral' ? '上边界' : '确认线', '#62a8df', LineStyle.Solid, 2);
     addLine(form.target, 'T1', form.direction === 'bearish' ? '#ff718c' : '#35d399', LineStyle.Dashed, 2);
     addLine(form.target2, 'T2', form.direction === 'bearish' ? '#c8556b' : '#278f70');
-    addLine(form.invalidation, form.direction === 'neutral' ? '下边界' : '形态失效', '#ff9b59', LineStyle.Solid, 2);
-    addLine(analysis.support20, '近20根支撑', '#3b8f75');
-    addLine(analysis.resistance20, '近20根压力', '#a94a60');
+    addLine(form.invalidation, form.direction === 'neutral' ? '下边界' : '失效', '#ff9b59', LineStyle.Solid, 2);
+    addLine(analysis.support20, '支撑', '#3b8f75');
+    addLine(analysis.resistance20, '压力', '#a94a60');
     if (markPrice && Math.abs(markPrice / currentPrice - 1) >= 0.00005) addLine(markPrice, '标记价', '#d8ad54', LineStyle.Dotted);
     const numeric = numericPosition(position);
     addLine(numeric.entryPrice, position.side === 'long' ? '多单开仓' : '空单开仓', '#f0b35b', LineStyle.Solid, 2);
     addLine(numeric.stopLoss, '我的止损', '#ff5f7a', LineStyle.Solid, 2);
     addLine(numeric.liquidationPrice, '实际强平', '#d85cff', LineStyle.Solid, 2);
   }, [analysis, currentPrice, markPrice, position]);
+
+  useEffect(() => {
+    const toLineData = (points: Array<{ time: number; price: number }> | undefined) => (points ?? []).map((point) => ({
+      time: Math.floor(point.time / 1000) as UTCTimestamp, value: point.price,
+    }));
+    upperLineRef.current?.setData(toLineData(analysis.technicalForm.trendlines?.upper));
+    lowerLineRef.current?.setData(toLineData(analysis.technicalForm.trendlines?.lower));
+  }, [analysis, candles]);
 
   useEffect(() => {
     if (!candleRef.current || !candles.length) return;
@@ -185,8 +206,14 @@ export default function MarketChart({
       <div><span>Binance BTCUSDT 永续</span><h2>{intervalNames[interval]}实时K线 · 形态点位已标注</h2></div>
       <div className="chart-price"><span>最新成交价</span><b>{formatPrice(currentPrice)}</b></div>
     </div>
-    <div className="chart-legend">
-      <span className="confirm">确认线</span><span className="target">T1 / T2</span><span className="invalid">失效线</span><span className="position">我的仓位</span>
+    <div className="chart-reading">
+      <div className="chart-reading-title">怎么读这张图</div>
+      <p>{analysis.technicalForm.direction === 'bearish'
+        ? '粉色箭头“跌破”：K线实体已经跌到确认线下方；黄色圆点“反抽受阻”：价格反弹回确认线附近，但收盘又被压回，说明这次跌破暂时有效。'
+        : analysis.technicalForm.direction === 'bullish'
+          ? '绿色箭头“突破”：K线实体站上确认线；黄色圆点“回测守住”：价格回到确认线附近仍收在上方，说明突破暂时有效。'
+          : '当前仍在整理区间内。蓝色上边界和橙色下边界是方向选择线，先看哪一侧出现实体收盘突破，再计算对应目标。'}</p>
+      <div className="chart-legend"><span className="confirm">蓝线：确认线/上边界</span><span className="target">绿色：T1、T2目标</span><span className="invalid">橙线：失效/下边界</span><span className="position">黄色：我的仓位</span></div>
     </div>
     <div className="market-chart" ref={containerRef} />
     <div className="chart-source"><span>{source}</span><span>每3秒同步，十字光标可查看精确OHLC</span></div>
