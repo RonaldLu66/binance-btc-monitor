@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getFuturesSnapshot, type FuturesKline } from '../../futures-stream';
+import { getBinanceFuturesHistory, getBinanceFuturesQuote } from '../../binance-futures-history';
 import { getTradingViewHistory } from '../../tradingview-history';
 
 export const dynamic = 'force-dynamic';
@@ -202,7 +203,7 @@ function convergingTrianglePattern(
   return {
     name: '收敛三角形', stage: '收敛中，等待实体选择方向', direction: 'neutral',
     description: `三组摆点显示上沿从 ${highText} 下移、下沿从 ${lowText} 抬高，区间由约 ${formatPrice(triangle.height)} 点收窄。现价仍在 ${formatPrice(lowerTrigger)}–${formatPrice(upperTrigger)} 之间，未破线前不预设方向。`,
-    trigger: null, target: null, target2: null, invalidation: null,
+    trigger: upperTrigger, target: null, target2: null, invalidation: lowerTrigger,
   };
 }
 
@@ -959,26 +960,43 @@ async function fetchHistoricalKlines(interval: Interval) {
 export async function GET() {
   try {
     const [historyResult, futures] = await Promise.all([
-      getTradingViewHistory().then((history) => ({
-        rows: intervals.map((interval) => [interval, history[interval] as RawKline[]] as const),
+      getBinanceFuturesHistory(intervals).then((history) => ({
+        rows: history.rows as Array<readonly [Interval, RawKline[]]>,
         reliable: true,
-        source: 'TradingView · BINANCE:BTCUSDT.P 永续合约K线',
-      })).catch(async (error) => {
-        console.error('TradingView futures history unavailable:', error);
-        return {
-          rows: await Promise.all(intervals.map(async (interval) => [interval, await fetchHistoricalKlines(interval)] as const)),
-          reliable: false,
-          source: 'Binance Spot K线（合约历史暂不可用，指标判断已暂停）',
-        };
+        source: history.source,
+      })).catch(async (binanceError) => {
+        console.error('Binance futures history unavailable:', binanceError);
+        return getTradingViewHistory().then((history) => ({
+          rows: intervals.map((interval) => [interval, history[interval] as RawKline[]] as const),
+          reliable: true,
+          source: 'TradingView · BINANCE:BTCUSDT.P 永续合约K线（灾备）',
+        })).catch(async (tradingViewError) => {
+          console.error('TradingView futures history unavailable:', tradingViewError);
+          return {
+            rows: await Promise.all(intervals.map(async (interval) => [interval, await fetchHistoricalKlines(interval)] as const)),
+            reliable: false,
+            source: 'Binance Spot K线（合约历史暂不可用，指标判断已暂停）',
+          };
+        });
       }),
-      getFuturesSnapshot().catch(() => null),
+      Promise.any([getFuturesSnapshot(), getBinanceFuturesQuote()]).catch(() => null),
     ]);
     const { rows, reliable: indicatorDataReliable, source: historySource } = historyResult;
     const now = Date.now();
+    const liveKlines = futures && 'klines' in futures ? futures.klines : futures && 'source' in futures
+      ? Object.fromEntries(intervals.map((interval) => {
+        const row = rows.find(([name]) => name === interval)?.[1].at(-1);
+        const close = futures.lastPrice;
+        return [interval, row ? {
+          interval, openTime: Number(row[0]), closeTime: Number(row[6]), open: Number(row[1]),
+          high: Math.max(Number(row[2]), close), low: Math.min(Number(row[3]), close), close,
+          volume: Number(row[5]), closed: false,
+        } : undefined];
+      })) as Partial<Record<Interval, FuturesKline>> : undefined;
     const analyses = Object.fromEntries(rows.map(([interval, data]) => [
-      interval, analyzeInterval(interval, data, now, futures?.klines[interval], indicatorDataReliable),
+      interval, analyzeInterval(interval, data, now, liveKlines?.[interval], indicatorDataReliable),
     ])) as Record<Interval, ReturnType<typeof analyzeInterval>>;
-    const currentPrice = futures?.markPrice ?? analyses['15m'].livePrice;
+    const currentPrice = futures?.lastPrice ?? analyses['15m'].livePrice;
     const weightedScore = intervals.reduce((total, interval) => total + Math.sign(analyses[interval].score) * intervalWeights[interval], 0);
     const overallBias = weightedScore >= 4 ? 'bullish' : weightedScore <= -4 ? 'bearish' : 'neutral';
     const overallLabel = overallBias === 'bullish' ? '多周期偏多' : overallBias === 'bearish' ? '多周期偏空' : '多周期震荡';
@@ -1000,7 +1018,7 @@ export async function GET() {
     const primaryForm = primary.technicalForm;
     const directionSign = primaryForm.direction === 'bullish' ? 1 : primaryForm.direction === 'bearish' ? -1 : 0;
     const trigger = primaryForm.trigger;
-    const confirmationPrice = trigger === null ? null : trigger + directionSign * primary.atr14 * 0.10;
+    const confirmationPrice = trigger === null || directionSign === 0 ? null : trigger + directionSign * primary.atr14 * 0.10;
     const retestZone = trigger === null ? null : primaryForm.direction === 'bullish'
       ? { low: trigger, high: trigger + primary.atr14 * 0.25 }
       : primaryForm.direction === 'bearish' ? { low: trigger - primary.atr14 * 0.25, high: trigger } : null;
@@ -1108,11 +1126,12 @@ export async function GET() {
         : '现在多空双方都没有明显优势，价格容易上下反复，最好等待方向真正走出来。';
     return NextResponse.json({
       generatedAt: now,
-      source: futures ? 'Binance USDⓈ-M Futures WebSocket' : marketSource,
+      source: futures ? ('source' in futures ? futures.source : 'Binance USDⓈ-M Futures WebSocket') : marketSource,
       historySource, indicatorDataReliable,
       market: futures ? 'futures' : 'spot_fallback',
       contract: futures ? {
-        connected: true, markPrice: futures.markPrice, indexPrice: futures.indexPrice,
+        connected: true, lastPrice: futures.lastPrice, lastTradeTime: futures.lastTradeTime,
+        markPrice: futures.markPrice, indexPrice: futures.indexPrice,
         fundingRate: futures.fundingRate, nextFundingTime: futures.nextFundingTime,
         bid: futures.bid, ask: futures.ask, connectedAt: futures.connectedAt,
       } : { connected: false },
@@ -1140,9 +1159,9 @@ export async function GET() {
         currentPrice, farFromTrigger, executionText,
         riskDistance: effectiveRiskDistance, structureRiskDistance: riskDistance,
         riskWarning: effectiveRiskDistance !== null && effectiveRiskDistance > 0.03
-          ? `执行止损距确认价 ${formatPercent(effectiveRiskDistance)}；30倍杠杆对应的保证金波动约 ${formatPercent(effectiveRiskDistance * 30)}，风险过大。`
+          ? `执行止损距确认价 ${formatPercent(effectiveRiskDistance)}，对高杠杆仓位风险较大；实际保证金影响以上方“我的合约仓位”填写结果为准。`
           : effectiveRiskDistance !== null
-            ? `执行止损距确认价 ${formatPercent(effectiveRiskDistance)}；30倍杠杆对应的保证金波动约 ${formatPercent(effectiveRiskDistance * 30)}，仍需按止损距离反推仓位。`
+            ? `执行止损距确认价 ${formatPercent(effectiveRiskDistance)}；应结合你的实际杠杆、数量和账户权益判断能否承受。`
             : '当前形态没有可计算的结构失效位，不能据此设置杠杆风险。',
         formula: '有效确认价 = 形态确认线 ± 0.10 ATR；T1 = 突破点 ± H；T2 = 突破点 ± 2H；执行止损取形态失效位与6%硬止损中更近者。',
       },
@@ -1152,7 +1171,7 @@ export async function GET() {
       bearCondition: supports.length
         ? `跌破 ${supports[0].toLocaleString('en-US', { maximumFractionDigits: 0 })} 后，下一支撑依次观察下方关键位。`
         : '等待放量跌破最近20根K线低点。',
-      riskNote: '30倍杠杆下，标的每波动1%，仓位保证金盈亏约波动30%（未计手续费、资金费率和维持保证金）。',
+      riskNote: '杠杆、数量和账户权益以上方“我的合约仓位”为准；系统不会用固定仓位替代你的真实数据。',
       ruleSet: '蔡森12形态量价规则 v1',
       modelStatus: 'research_only',
     }, { headers: { 'Cache-Control': 'no-store' } });

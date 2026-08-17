@@ -1,6 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import MarketChart from './market-chart';
+import PositionPanel from './position-panel';
+import { emptyPosition, type PositionDraft } from './position';
 
 type Interval = '15m' | '1h' | '4h' | '1d';
 type Bias = 'bullish' | 'bearish' | 'neutral';
@@ -40,7 +43,7 @@ type TradePlan = {
   riskWarning: string; formula: string;
 };
 type ContractStatus = {
-  connected: boolean; markPrice?: number; indexPrice?: number; fundingRate?: number;
+  connected: boolean; lastPrice?: number; lastTradeTime?: number; markPrice?: number; indexPrice?: number; fundingRate?: number;
   nextFundingTime?: number; bid?: number; ask?: number; connectedAt?: number;
 };
 type RoadmapStep = {
@@ -133,6 +136,8 @@ export default function AnalysisPage() {
   const [loading, setLoading] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [selectedInterval, setSelectedInterval] = useState<Interval>('4h');
+  const [position, setPosition] = useState<PositionDraft>(emptyPosition);
+  const [positionReady, setPositionReady] = useState(false);
   const [error, setError] = useState('');
   const requestInFlight = useRef(false);
   const hasData = useRef(false);
@@ -158,6 +163,17 @@ export default function AnalysisPage() {
 
   useEffect(() => { void analyze(); }, [analyze]);
   useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem('btc-contract-position-v1');
+      if (saved) setPosition({ ...emptyPosition, ...JSON.parse(saved) as Partial<PositionDraft> });
+    } catch { /* Invalid local data is ignored. */ }
+    setPositionReady(true);
+  }, []);
+  useEffect(() => {
+    if (!positionReady) return;
+    window.localStorage.setItem('btc-contract-position-v1', JSON.stringify(position));
+  }, [position, positionReady]);
+  useEffect(() => {
     if (!autoRefresh) return;
     const timer = window.setInterval(() => { void analyze(); }, 3000);
     return () => window.clearInterval(timer);
@@ -180,14 +196,21 @@ export default function AnalysisPage() {
     : activeDown?.status === 'testing' ? activeDown
       : upDistance <= downDistance ? activeUp : activeDown;
   const focusDirection = focusStep === activeDown ? 'down' : 'up';
+  const markDeviation = analysis?.contract.markPrice && analysis.currentPrice
+    ? analysis.contract.markPrice / analysis.currentPrice - 1 : null;
+  const quoteAge = analysis?.contract.lastTradeTime
+    ? Math.max(0, analysis.generatedAt - analysis.contract.lastTradeTime) : null;
 
   return <main className="analysis-page direct-page">
     <header className="analysis-header">
       <div className="analysis-header-main">
-        <span className="eyebrow">BTCUSDT · 当前标记价</span>
+        <span className="eyebrow">BTCUSDT 永续 · Binance 最新成交价</span>
         <div className="top-current-price">
           <strong>{analysis ? price(analysis.currentPrice) : '—'}</strong>
-          <div><span>{analysis?.contract.connected ? 'Binance 永续合约' : loading ? '正在连接合约行情' : '等待行情'}</span>{analysis && <time>{new Date(analysis.generatedAt).toLocaleTimeString('zh-CN')} 更新</time>}</div>
+          <div>
+            <span>{analysis?.contract.connected ? `标记价 ${price(analysis.contract.markPrice)}${markDeviation !== null ? ` · 与成交价相差 ${(Math.abs(markDeviation) * 100).toFixed(3)}%` : ''}` : loading ? '正在连接合约行情' : '等待行情'}</span>
+            {analysis && <time>{new Date(analysis.generatedAt).toLocaleTimeString('zh-CN')} 更新{quoteAge !== null ? ` · 行情延迟约 ${(quoteAge / 1000).toFixed(1)}秒` : ''}</time>}
+          </div>
         </div>
         <h1>BTC 现在怎么看</h1>
       </div>
@@ -200,6 +223,14 @@ export default function AnalysisPage() {
     {error && <div className="error">{error}</div>}
     {!analysis && !loading && <section className="direct-empty"><b>暂时没有分析结果</b><span>检查行情连接，或点击“立即刷新”重试。</span></section>}
     {analysis && <>
+      <MarketChart
+        interval={selectedInterval}
+        analysis={analysis.analyses[selectedInterval]}
+        currentPrice={analysis.currentPrice}
+        markPrice={analysis.contract.markPrice}
+        position={position}
+      />
+      <PositionPanel position={position} onChange={setPosition} analysis={analysis} markPrice={analysis.contract.markPrice} />
       <section className={`direct-verdict ${analysis.overallBias}`}>
         <div className="verdict-copy"><span>一句话结论</span><h2>{stance}</h2><p>{plainSummary}</p></div>
       </section>

@@ -5,6 +5,7 @@ import './analysis/exact-plan.css';
 import './analysis/market-roadmap.css';
 import './analysis/practical-controls.css';
 import './analysis/current-patterns.css';
+import './analysis/decision-tools.css';
 import type { ReactNode } from 'react';
 
 export default function RootLayout({ children }: { children: ReactNode }) {
