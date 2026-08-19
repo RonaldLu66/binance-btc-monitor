@@ -181,6 +181,29 @@
   color: #dec38e;
 }
 
+.secondary-pattern {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-left: 2px solid #d59e43;
+  background: #251f15;
+  color: #b9a477;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.secondary-pattern b {
+  color: #e1bd6e;
+  font-size: 10px;
+}
+
+.secondary-pattern.bearish {
+  border-left-color: #b85e72;
+  background: #26171d;
+}
+
 .supplemental-wave {
   display: grid;
   gap: 4px;

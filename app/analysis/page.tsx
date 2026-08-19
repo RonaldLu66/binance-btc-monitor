@@ -10,6 +10,7 @@ type Bias = 'bullish' | 'bearish' | 'neutral';
 type TechnicalForm = {
   name: string; stage: string; direction: Bias; description: string;
   trigger: number | null; target: number | null; target2: number | null; invalidation: number | null;
+  secondary?: { name: string; stage: string; direction: Bias; trigger: number | null };
 };
 type IndicatorCheck = { name: string; confirmed: boolean; provisional: boolean; available: boolean; text: string };
 type IndicatorConfirmation = { count: number; provisionalCount: number; level: string; checks: IndicatorCheck[] };
@@ -38,7 +39,7 @@ type TradePlan = {
   indicatorsConfirmed: boolean; qualified: boolean; confirmationPrice: number | null;
   retestZone: { low: number; high: number } | null; invalidation: number | null;
   hardStop: number | null; effectiveStop: number | null;
-  measuredTarget: number | null; measuredTarget2: number | null; currentPrice: number; farFromTrigger: boolean;
+  measuredTarget: number | null; measuredTarget2: number | null; currentPrice: number; farFromTrigger: boolean; targetReached: boolean;
   executionText: string; riskDistance: number | null; structureRiskDistance: number | null;
   riskWarning: string; formula: string;
 };
@@ -100,6 +101,7 @@ function CurrentPattern({ item }: { item: IntervalAnalysis }) {
       <div className="current-pattern-title"><b>{form.name}</b><span>{form.stage}</span></div>
       <p>{directReason(item)}</p>
       {item.contextWarning && <p className="current-pattern-warning">{item.contextWarning}</p>}
+      {form.secondary && <div className={`secondary-pattern ${form.secondary.direction}`}><b>{form.secondary.name}</b><span>{form.secondary.stage}{form.secondary.trigger !== null ? ` · 颈线 ${price(form.secondary.trigger)}` : ''}</span></div>}
       {activeWave && <div className={`supplemental-wave ${activeWave.direction}`}><b>同时出现{activeWave.direction === 'bullish' ? '上涨' : '下跌'}二波段：{activeWave.statusLabel}</b><span>启动 {price(activeWave.trigger)} · 等幅目标 {price(activeWave.target)} · 失效 {price(activeWave.invalidation)}</span><small>{activeWave.nextAction}</small></div>}
       <div className="current-pattern-checks">{item.indicatorConfirmation.checks.map((check) => <span className={checkClass(check)} title={check.text} key={check.name}>{check.name}{check.confirmed ? '：支持' : check.provisional ? '：盘中' : check.available ? '：不支持' : '：暂停'}</span>)}</div>
     </div>
@@ -263,7 +265,7 @@ export default function AnalysisPage() {
           <article className="confirm-level"><span>{analysis.tradePlan.shapeConfirmed ? '有效确认价' : '等待突破/跌破价'}</span><strong>{nullablePrice(analysis.tradePlan.confirmationPrice)}</strong><small>当前价与该点相差 {distanceText(analysis.currentPrice, analysis.tradePlan.confirmationPrice ?? undefined)}。</small></article>
           <article className="retest-level"><span>确认后的回测区</span><strong>{analysis.tradePlan.retestZone ? `${price(analysis.tradePlan.retestZone.low)} – ${price(analysis.tradePlan.retestZone.high)}` : '—'}</strong><small>{analysis.tradePlan.farFromTrigger ? '当前离确认线较远：不追，等价格回到这里。' : '突破后回到这里仍守住，形态可信度更高。'}</small></article>
           <article className="invalid-level"><span>执行止损位</span><strong>{nullablePrice(analysis.tradePlan.effectiveStop)}</strong><small>形态失效位 {nullablePrice(analysis.tradePlan.invalidation)}；6%硬止损 {nullablePrice(analysis.tradePlan.hardStop)}，执行更近者。</small></article>
-          <article className="target-level"><span>第一满足位 T1</span><strong>{nullablePrice(analysis.tradePlan.measuredTarget)}</strong><small>相距 {distanceText(analysis.tradePlan.confirmationPrice ?? analysis.currentPrice, analysis.tradePlan.measuredTarget ?? undefined)}；达到后规则参考为减仓1/2或上移保护位。</small></article>
+          <article className="target-level"><span>{analysis.tradePlan.targetReached ? 'T1 已经到达' : '第一满足位 T1'}</span><strong>{nullablePrice(analysis.tradePlan.measuredTarget)}</strong><small>{analysis.tradePlan.targetReached ? '原形态的一倍量度目标已经兑现，不能作为当前追价理由。' : `相距 ${distanceText(analysis.tradePlan.confirmationPrice ?? analysis.currentPrice, analysis.tradePlan.measuredTarget ?? undefined)}；达到后规则参考为减仓1/2或上移保护位。`}</small></article>
         </div>
         <p className="exact-risk">{analysis.tradePlan.riskWarning}</p>
       </section>

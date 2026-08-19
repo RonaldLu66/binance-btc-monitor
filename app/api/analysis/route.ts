@@ -15,6 +15,8 @@ type TechnicalPattern = {
   name: string; stage: string; direction: Direction; description: string;
   trigger: number | null; target: number | null; target2: number | null; invalidation: number | null;
   trendlines?: { upper: Array<{ time: number; price: number }>; lower: Array<{ time: number; price: number }> };
+  points?: Array<{ time: number; price: number; label: string; position: 'aboveBar' | 'belowBar' }>;
+  secondary?: { name: string; stage: string; direction: Direction; trigger: number | null };
 };
 type PatternCalculation = {
   calculable: boolean; active: boolean; method: string;
@@ -212,6 +214,122 @@ function convergingTrianglePattern(
   };
 }
 
+type DoublePatternCandidate = {
+  kind: 'bottom' | 'top'; first: Pivot; second: Pivot; middle: Pivot;
+  neckline: number; extreme: number; height: number; gap: number; separation: number;
+  priceBroken: boolean; confirmed: boolean; breakoutVolumeRatio: number | null; score: number;
+};
+
+function findDoublePatternCandidates(
+  recent: Kline[], swingPoints: Pivot[], currentAtr: number, lastClosed: Kline,
+  relativeVolume: number, kind: 'bottom' | 'top',
+) {
+  const points = swingPoints.filter((point) => point.kind === (kind === 'bottom' ? 'low' : 'high')).slice(-8);
+  const candidates: DoublePatternCandidate[] = [];
+  for (let leftIndex = 0; leftIndex < points.length - 1; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < points.length; rightIndex += 1) {
+      const first = points[leftIndex];
+      const second = points[rightIndex];
+      const separation = second.index - first.index;
+      if (separation < 4 || separation > 48) continue;
+      const between = recent.slice(first.index, second.index + 1);
+      const neckline = kind === 'bottom'
+        ? Math.max(...between.map((bar) => bar.high))
+        : Math.min(...between.map((bar) => bar.low));
+      const middleOffset = between.findIndex((bar) => kind === 'bottom' ? bar.high === neckline : bar.low === neckline);
+      const middle: Pivot = {
+        index: first.index + middleOffset,
+        price: neckline,
+        kind: kind === 'bottom' ? 'high' : 'low',
+      };
+      const extreme = kind === 'bottom'
+        ? Math.min(first.price, second.price)
+        : Math.max(first.price, second.price);
+      const height = Math.abs(neckline - extreme);
+      const gap = Math.abs(first.price - second.price);
+      const comparable = height >= currentAtr * 1.10
+        && gap <= currentAtr * 1.25
+        && gap <= height * 0.40;
+      if (!comparable) continue;
+      const breakBuffer = currentAtr * 0.10;
+      const priceBroken = kind === 'bottom'
+        ? lastClosed.close > neckline + breakBuffer
+        : lastClosed.close < neckline - breakBuffer;
+      const breakoutIndex = recent.findIndex((bar, index) => index > second.index
+        && bar.openTime <= lastClosed.openTime
+        && (kind === 'bottom' ? bar.close > neckline + breakBuffer : bar.close < neckline - breakBuffer));
+      const breakoutVolumeRatio = breakoutIndex >= 0
+        ? recent[breakoutIndex].volume / Math.max(average(recent.slice(Math.max(0, breakoutIndex - 20), breakoutIndex).map((bar) => bar.volume)), 1e-9)
+        : null;
+      const confirmed = kind === 'bottom'
+        ? priceBroken && (breakoutVolumeRatio ?? relativeVolume) >= bullishVolumeThreshold
+        : priceBroken;
+      const age = recent.length - 1 - second.index;
+      if (!priceBroken && age > 18) continue;
+      const similarity = 1 - Math.min(gap / Math.max(height, 1), 1);
+      const completionScore = confirmed ? 300 : priceBroken ? 230 : 100;
+      const score = completionScore + similarity * 30 + Math.min(height / Math.max(currentAtr, 1), 4) * 8 - age * 1.25;
+      candidates.push({ kind, first, second, middle, neckline, extreme, height, gap, separation, priceBroken, confirmed, breakoutVolumeRatio, score });
+    }
+  }
+  return candidates.sort((left, right) => right.score - left.score);
+}
+
+function doublePatternToTechnical(
+  candidate: DoublePatternCandidate, recent: Kline[], live: Kline, relativeVolume: number,
+): TechnicalPattern {
+  const bullish = candidate.kind === 'bottom';
+  const direction: Direction = bullish ? 'bullish' : 'bearish';
+  const name = bullish ? 'W底' : 'M头';
+  const target = bullish ? candidate.neckline + candidate.height : candidate.neckline - candidate.height;
+  const target2 = bullish ? candidate.neckline + candidate.height * 2 : candidate.neckline - candidate.height * 2;
+  const targetReached = bullish ? live.close >= target : live.close <= target;
+  const target2Reached = bullish ? live.close >= target2 : live.close <= target2;
+  const stage = candidate.confirmed
+    ? target2Reached ? `已经确认，二倍量度目标已到达`
+      : targetReached ? `已经确认，一倍量度目标已到达`
+        : bullish ? '实体带量突破颈线，已经确认' : '实体收盘跌破颈线，已经确认'
+    : candidate.priceBroken
+      ? bullish ? '实体已突破，量能不足，仍按W底主结构观察' : '实体已经跌破，等待确认'
+      : bullish ? '双底形成，等待实体突破颈线' : '双顶形成，等待实体跌破颈线';
+  const pointText = bullish
+    ? `左底 ${formatPrice(candidate.first.price)}，中间反弹高点 ${formatPrice(candidate.neckline)}，右底 ${formatPrice(candidate.second.price)}`
+    : `左顶 ${formatPrice(candidate.first.price)}，中间回落低点 ${formatPrice(candidate.neckline)}，右顶 ${formatPrice(candidate.second.price)}`;
+  const stateText = candidate.confirmed
+    ? target2Reached
+      ? `一倍目标 ${formatPrice(target)} 和二倍目标 ${formatPrice(target2)} 都已兑现，当前已超出这个形态的量度范围，不能再把W/M量度目标当成追价依据；结构分界仍看 ${formatPrice(candidate.neckline)}。`
+      : targetReached
+        ? `一倍目标 ${formatPrice(target)} 已兑现，下一量度位是 ${formatPrice(target2)}；此时优先保护已有利润，不把已兑现的一倍目标当成新开仓理由。`
+        : bullish
+      ? `上一根完整K线已带量站上颈线，W底确认；守住 ${formatPrice(candidate.neckline)}，量度目标先看 ${formatPrice(target)}。`
+      : `上一根完整K线已收在颈线下方，M头确认；不能收回 ${formatPrice(candidate.neckline)}，量度目标先看 ${formatPrice(target)}。`
+    : candidate.priceBroken
+      ? bullish
+        ? `实体已经站上颈线，但突破K线量能只有此前20根均量的 ${(candidate.breakoutVolumeRatio ?? relativeVolume).toFixed(2)} 倍；结构是W底，确认强度不足，回踩 ${formatPrice(candidate.neckline)} 是关键。`
+        : `实体已经跌破颈线，继续看反抽能否收回 ${formatPrice(candidate.neckline)}。`
+      : `当前价${pricePosition(live.close, candidate.neckline)}，还没有完成${bullish ? '向上突破' : '向下跌破'}。`;
+  return {
+    name, stage, direction,
+    description: `${pointText}。两端相差 ${formatPrice(candidate.gap)} 点，间隔 ${candidate.separation} 根K线，形态高度 ${formatPrice(candidate.height)} 点。${stateText}`,
+    trigger: candidate.neckline, target, target2,
+    invalidation: candidate.neckline,
+    points: [
+      { time: recent[candidate.first.index].openTime, price: candidate.first.price, label: bullish ? '左底' : '左顶', position: bullish ? 'belowBar' : 'aboveBar' },
+      { time: recent[candidate.middle.index].openTime, price: candidate.middle.price, label: bullish ? '颈线高点' : '颈线低点', position: bullish ? 'aboveBar' : 'belowBar' },
+      { time: recent[candidate.second.index].openTime, price: candidate.second.price, label: bullish ? '右底' : '右顶', position: bullish ? 'belowBar' : 'aboveBar' },
+    ],
+    trendlines: bullish
+      ? {
+        upper: [{ time: recent[candidate.first.index].openTime, price: candidate.neckline }, { time: recent[candidate.second.index].openTime, price: candidate.neckline }],
+        lower: [candidate.first, candidate.middle, candidate.second].map((point) => ({ time: recent[point.index].openTime, price: point.price })),
+      }
+      : {
+        upper: [candidate.first, candidate.middle, candidate.second].map((point) => ({ time: recent[point.index].openTime, price: point.price })),
+        lower: [{ time: recent[candidate.first.index].openTime, price: candidate.neckline }, { time: recent[candidate.second.index].openTime, price: candidate.neckline }],
+      },
+  };
+}
+
 function detectSecondLeg(
   closed: Kline[], live: Kline, currentAtr: number, direction: 'bullish' | 'bearish', liveBarClosed: boolean,
 ): WaveStructure | null {
@@ -405,50 +523,25 @@ function technicalForm(
     }
   }
 
-  const twoLows = lows.slice(-2);
-  if (twoLows.length === 2) {
-    const neckline = Math.max(...recent.slice(twoLows[0].index, twoLows[1].index + 1).map((bar) => bar.high));
-    const bottom = Math.min(twoLows[0].price, twoLows[1].price);
-    const height = neckline - bottom;
-    const bottomGap = Math.abs(twoLows[0].price - twoLows[1].price);
-    const separation = twoLows[1].index - twoLows[0].index;
-    const comparableBottoms = separation >= 4 && separation <= 48
-      && height >= currentAtr * 1.10
-      && bottomGap <= currentAtr * 1.25
-      && bottomGap <= height * 0.40;
-    if (comparableBottoms) {
-      const priceBroken = lastClosed.close > neckline;
-      const confirmed = priceBroken && relativeVolume >= bullishVolumeThreshold;
-      return {
-        name: 'W底', stage: confirmed ? '实体带量突破颈线，已经确认' : priceBroken ? '实体突破但量能不足，未确认' : '双底形成，等待实体带量突破', direction: 'bullish',
-        description: `两个低点分别是 ${formatPrice(twoLows[0].price)} 和 ${formatPrice(twoLows[1].price)}，相差 ${formatPrice(bottomGap)} 点，占形态高度 ${formatPercent(bottomGap / height)}，间隔 ${separation} 根K线；中间反弹高点形成 ${formatPrice(neckline)} 颈线。当前价${pricePosition(live.close, neckline)}；${confirmed ? `上一根实体已带量收上颈线，下一步看回踩 ${formatPrice(neckline)} 能否守住。` : priceBroken ? `实体已经收上颈线，但成交量仅 ${relativeVolume.toFixed(2)} 倍，低于${bullishVolumeThreshold.toFixed(2)}倍，按假突破防范。` : `距离颈线还差 ${formatPrice(Math.max(neckline - live.close, 0))} 点，当前只是双底雏形。`}`,
-        trigger: neckline, target: neckline + height, target2: neckline + height * 2,
-        invalidation: neckline,
-        trendlines: { upper: [{ time: recent[twoLows[0].index].openTime, price: neckline }, { time: recent[twoLows[1].index].openTime, price: neckline }], lower: twoLows.map((point) => ({ time: recent[point.index].openTime, price: point.price })) },
+  const bestBottom = findDoublePatternCandidates(recent, swingPoints, currentAtr, lastClosed, relativeVolume, 'bottom')[0];
+  const bestTop = findDoublePatternCandidates(recent, swingPoints, currentAtr, lastClosed, relativeVolume, 'top')[0];
+  const bestDouble = [bestBottom, bestTop].filter((candidate): candidate is DoublePatternCandidate => Boolean(candidate))
+    .sort((left, right) => right.score - left.score)[0];
+  if (bestDouble) {
+    const pattern = doublePatternToTechnical(bestDouble, recent, live, relativeVolume);
+    const opposing = bestDouble.kind === 'bottom' ? bestTop : bestBottom;
+    const opposingIsRelevant = opposing
+      && recent.length - 1 - opposing.second.index <= 18
+      && Math.abs(live.close - opposing.neckline) <= currentAtr * 2.5;
+    if (opposing && opposingIsRelevant && opposing.score < bestDouble.score) {
+      pattern.secondary = {
+        name: opposing.kind === 'bottom' ? '局部W底候选' : '局部M头候选',
+        stage: opposing.priceBroken ? '已经破线，但完整度低于主结构' : '尚未破颈线，不构成反转',
+        direction: opposing.kind === 'bottom' ? 'bullish' : 'bearish',
+        trigger: opposing.neckline,
       };
     }
-  }
-  const twoHighs = highs.slice(-2);
-  if (twoHighs.length === 2) {
-    const neckline = Math.min(...recent.slice(twoHighs[0].index, twoHighs[1].index + 1).map((bar) => bar.low));
-    const top = Math.max(twoHighs[0].price, twoHighs[1].price);
-    const height = top - neckline;
-    const topGap = Math.abs(twoHighs[0].price - twoHighs[1].price);
-    const separation = twoHighs[1].index - twoHighs[0].index;
-    const comparableTops = separation >= 4 && separation <= 48
-      && height >= currentAtr * 1.10
-      && topGap <= currentAtr * 1.25
-      && topGap <= height * 0.40;
-    if (comparableTops) {
-      const confirmed = lastClosed.close < neckline;
-      return {
-        name: 'M头', stage: confirmed ? '实体收盘跌破颈线，已经确认' : '双顶形成，等待实体跌破', direction: 'bearish',
-        description: `两个高点分别是 ${formatPrice(twoHighs[0].price)} 和 ${formatPrice(twoHighs[1].price)}，相差 ${formatPrice(topGap)} 点，占形态高度 ${formatPercent(topGap / height)}，间隔 ${separation} 根K线；中间回落低点形成 ${formatPrice(neckline)} 颈线。当前价${pricePosition(live.close, neckline)}；${confirmed ? `上一根实体已收在颈线下方，M头成立；当前量能 ${relativeVolume.toFixed(2)} 倍只决定跌破强弱，不影响成立。` : `还需实体收盘跌破 ${formatPrice(neckline)}。`}`,
-        trigger: neckline, target: neckline - height, target2: neckline - height * 2,
-        invalidation: neckline,
-        trendlines: { upper: twoHighs.map((point) => ({ time: recent[point.index].openTime, price: point.price })), lower: [{ time: recent[twoHighs[0].index].openTime, price: neckline }, { time: recent[twoHighs[1].index].openTime, price: neckline }] },
-      };
-    }
+    return pattern;
   }
 
   const poleBars = closed.slice(-28, -14);
@@ -617,22 +710,20 @@ function calculatePattern(pattern: TechnicalPattern): PatternCalculation {
 function broaderStructureConflict(closed: Kline[], live: Kline, direction: Direction, relativeVolume: number): StructureContext | null {
   if (direction === 'neutral') return null;
   const recent = [...closed.slice(-80), live];
-  const swingPoints = pivots(recent);
+  const currentAtr = atr(closed);
+  const swingPoints = alternatingPivots(recent, currentAtr);
   const highs = swingPoints.filter((pivot) => pivot.kind === 'high');
   const lows = swingPoints.filter((pivot) => pivot.kind === 'low');
   const lastClosed = closed.at(-1)!;
   if (direction === 'bullish') {
-    const twoHighs = highs.slice(-2);
-    if (twoHighs.length === 2 && Math.abs(twoHighs[0].price - twoHighs[1].price) / Math.min(twoHighs[0].price, twoHighs[1].price) <= 0.008) {
-      const neckline = Math.min(...recent.slice(twoHighs[0].index, twoHighs[1].index + 1).map((bar) => bar.low));
-      if (lastClosed.close < neckline) {
-        const top = Math.max(twoHighs[0].price, twoHighs[1].price);
-        const target = neckline - (top - neckline);
-        return {
-          pattern: '已确认M头', direction: 'bearish', keyLevel: neckline, target,
-          text: `更大周期的M头还在：双顶 ${formatPrice(twoHighs[0].price)}/${formatPrice(twoHighs[1].price)}，颈线 ${formatPrice(neckline)}，下跌目标约 ${formatPrice(target)}。价格没有实体收回 ${formatPrice(neckline)} 前，这次上涨只算反弹，不算反转。`,
-        };
-      }
+    const confirmedTop = findDoublePatternCandidates(recent, swingPoints, currentAtr, lastClosed, relativeVolume, 'top')
+      .find((candidate) => candidate.confirmed);
+    if (confirmedTop) {
+      const target = confirmedTop.neckline - confirmedTop.height;
+      return {
+        pattern: '已确认M头', direction: 'bearish', keyLevel: confirmedTop.neckline, target,
+        text: `更大周期的M头还在：双顶 ${formatPrice(confirmedTop.first.price)}/${formatPrice(confirmedTop.second.price)}，颈线 ${formatPrice(confirmedTop.neckline)}，下跌目标约 ${formatPrice(target)}。价格没有实体收回 ${formatPrice(confirmedTop.neckline)} 前，这次上涨只算反弹，不算反转。`,
+      };
     }
     const lastHighs = highs.slice(-2);
     const lastLows = lows.slice(-2);
@@ -645,17 +736,14 @@ function broaderStructureConflict(closed: Kline[], live: Kline, direction: Direc
     }
   }
   if (direction === 'bearish') {
-    const twoLows = lows.slice(-2);
-    if (twoLows.length === 2 && Math.abs(twoLows[0].price - twoLows[1].price) / Math.min(twoLows[0].price, twoLows[1].price) <= 0.008) {
-      const neckline = Math.max(...recent.slice(twoLows[0].index, twoLows[1].index + 1).map((bar) => bar.high));
-      if (lastClosed.close > neckline && relativeVolume >= bullishVolumeThreshold) {
-        const bottom = Math.min(twoLows[0].price, twoLows[1].price);
-        const target = neckline + (neckline - bottom);
-        return {
-          pattern: '已确认W底', direction: 'bullish', keyLevel: neckline, target,
-          text: `更大周期的W底还在：双底 ${formatPrice(twoLows[0].price)}/${formatPrice(twoLows[1].price)}，颈线 ${formatPrice(neckline)}，上涨目标约 ${formatPrice(target)}。价格没有实体跌回 ${formatPrice(neckline)} 下方前，这次下跌只算回调，不算转空。`,
-        };
-      }
+    const confirmedBottom = findDoublePatternCandidates(recent, swingPoints, currentAtr, lastClosed, relativeVolume, 'bottom')
+      .find((candidate) => candidate.confirmed);
+    if (confirmedBottom) {
+      const target = confirmedBottom.neckline + confirmedBottom.height;
+      return {
+        pattern: '已确认W底', direction: 'bullish', keyLevel: confirmedBottom.neckline, target,
+        text: `更大周期的W底还在：双底 ${formatPrice(confirmedBottom.first.price)}/${formatPrice(confirmedBottom.second.price)}，颈线 ${formatPrice(confirmedBottom.neckline)}，上涨目标约 ${formatPrice(target)}。价格没有实体跌回 ${formatPrice(confirmedBottom.neckline)} 下方前，这次下跌只算回调，不算转空。`,
+      };
     }
     const lastHighs = highs.slice(-2);
     const lastLows = lows.slice(-2);
@@ -1038,10 +1126,15 @@ export async function GET() {
     const confirmationDistance = confirmationPrice === null ? null : Math.abs(currentPrice - confirmationPrice);
     const confirmationDistancePercent = confirmationPrice === null ? null : confirmationDistance! / confirmationPrice;
     const movementWord = primaryForm.direction === 'bullish' ? '上涨' : primaryForm.direction === 'bearish' ? '下跌' : '移动';
+    const targetReached = primaryForm.target !== null && (primaryForm.direction === 'bullish'
+      ? currentPrice >= primaryForm.target
+      : primaryForm.direction === 'bearish' ? currentPrice <= primaryForm.target : false);
     const executionText = !shapeConfirmed
       ? confirmationPrice === null
         ? `${primary.label}${primaryForm.name}目前没有明确确认价，暂不操作。`
         : `${primary.label}${primaryForm.name}还没确认。现价 ${formatPrice(currentPrice)}，还要${movementWord}约 ${formatPrice(confirmationDistance!)} 点（${formatPercent(confirmationDistancePercent!)}）到 ${formatPrice(confirmationPrice)}；目前 ${primary.indicatorConfirmation.count}/4 项指标支持，${missingIndicators.join('、') || '其余指标'}仍未转强。`
+      : targetReached
+        ? `${primary.label}${primaryForm.name}的一倍量度目标 ${formatPrice(primaryForm.target!)} 已经到达，原形态已兑现，不能再把它当成追价开仓信号。已有仓位优先看保护利润；新方向要等新的整理、回测或二波段结构。`
       : !indicatorsConfirmed
         ? `${primary.label}${primaryForm.name}虽已破线，但只有 ${primary.indicatorConfirmation.count}/4 项指标同向；${missingIndicators.join('、')}仍偏弱，这次破线还不能算有效。`
         : farFromTrigger
@@ -1165,7 +1258,7 @@ export async function GET() {
         shapeConfirmed, indicatorsConfirmed, qualified: shapeConfirmed && indicatorsConfirmed,
         confirmationPrice, retestZone, invalidation: primaryForm.invalidation,
         hardStop, effectiveStop, measuredTarget: primaryForm.target, measuredTarget2: primaryForm.target2,
-        currentPrice, farFromTrigger, executionText,
+        currentPrice, farFromTrigger, targetReached, executionText,
         riskDistance: effectiveRiskDistance, structureRiskDistance: riskDistance,
         riskWarning: effectiveRiskDistance !== null && effectiveRiskDistance > 0.03
           ? `执行止损距确认价 ${formatPercent(effectiveRiskDistance)}，对高杠杆仓位风险较大；实际保证金影响以上方“我的合约仓位”填写结果为准。`

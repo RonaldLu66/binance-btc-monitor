@@ -14,6 +14,7 @@ type Pattern = {
   name: string; direction: Bias; trigger: number | null; target: number | null;
   target2: number | null; invalidation: number | null;
   trendlines?: { upper: Array<{ time: number; price: number }>; lower: Array<{ time: number; price: number }> };
+  points?: Array<{ time: number; price: number; label: string; position: 'aboveBar' | 'belowBar' }>;
 };
 type ChartAnalysis = {
   technicalForm: Pattern; support20: number; resistance20: number;
@@ -129,7 +130,10 @@ export default function MarketChart({
     candleRef.current.setData(candles);
     volumeRef.current.setData(volumes);
     if (firstLoadRef.current) {
-      chartRef.current.timeScale().fitContent();
+      chartRef.current.timeScale().setVisibleLogicalRange({
+        from: Math.max(0, candles.length - 90),
+        to: candles.length + 4,
+      });
       firstLoadRef.current = false;
     }
   }, [candles, volumes]);
@@ -175,6 +179,13 @@ export default function MarketChart({
     }
     const recent = candles.slice(-90);
     const markers: Array<{ time: UTCTimestamp; position: 'aboveBar' | 'belowBar'; color: string; shape: 'arrowUp' | 'arrowDown' | 'circle'; text: string }> = [];
+    for (const point of analysis.technicalForm.points ?? []) markers.push({
+      time: Math.floor(point.time / 1000) as UTCTimestamp,
+      position: point.position,
+      color: direction === 'bullish' ? '#65ddb4' : '#ff8da2',
+      shape: 'circle',
+      text: `${point.label} ${formatPrice(point.price)}`,
+    });
     let crossedAt = -1;
     for (let index = 1; index < recent.length; index += 1) {
       const crossed = direction === 'bullish'
@@ -208,7 +219,11 @@ export default function MarketChart({
     </div>
     <div className="chart-reading">
       <div className="chart-reading-title">怎么读这张图</div>
-      <p>{analysis.technicalForm.direction === 'bearish'
+      <p>{analysis.technicalForm.name === 'W底'
+        ? '橙色折线直接连接左底、颈线高点和右底，形成W；蓝色横线是颈线。实体站上颈线后，重点看回踩能否守住。'
+        : analysis.technicalForm.name === 'M头'
+          ? '蓝色折线直接连接左顶、颈线低点和右顶，形成M；橙色横线是颈线。只有实体跌破颈线，M头才成立。'
+          : analysis.technicalForm.direction === 'bearish'
         ? '粉色箭头“跌破”：K线实体已经跌到确认线下方；黄色圆点“反抽受阻”：价格反弹回确认线附近，但收盘又被压回，说明这次跌破暂时有效。'
         : analysis.technicalForm.direction === 'bullish'
           ? '绿色箭头“突破”：K线实体站上确认线；黄色圆点“回测守住”：价格回到确认线附近仍收在上方，说明突破暂时有效。'
