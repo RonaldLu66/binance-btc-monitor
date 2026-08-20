@@ -426,6 +426,47 @@ function headAndShouldersPattern(
   };
 }
 
+function findHeadAndShouldersCandidate(
+  recent: Kline[], swingPoints: Pivot[], currentAtr: number, kind: 'bottom' | 'top',
+) {
+  const points = swingPoints.filter((point) => point.kind === (kind === 'bottom' ? 'low' : 'high')).slice(-12);
+  const candidates: Array<{ left: Pivot; head: Pivot; right: Pivot; score: number }> = [];
+  for (let leftIndex = 0; leftIndex < points.length - 2; leftIndex += 1) {
+    for (let headIndex = leftIndex + 1; headIndex < points.length - 1; headIndex += 1) {
+      for (let rightIndex = headIndex + 1; rightIndex < points.length; rightIndex += 1) {
+        const left = points[leftIndex];
+        const head = points[headIndex];
+        const right = points[rightIndex];
+        const leftHeadGap = head.index - left.index;
+        const headRightGap = right.index - head.index;
+        const span = right.index - left.index;
+        if (leftHeadGap < 5 || headRightGap < 5 || span > 90) continue;
+        const shoulderGap = Math.abs(left.price - right.price) / Math.min(left.price, right.price);
+        if (shoulderGap > 0.12) continue;
+        const headBeyondShoulders = kind === 'bottom'
+          ? head.price < Math.min(left.price, right.price) - currentAtr * 0.20
+          : head.price > Math.max(left.price, right.price) + currentAtr * 0.20;
+        if (!headBeyondShoulders) continue;
+        const firstReaction = extremePivot(recent, left.index, head.index, kind === 'bottom' ? 'high' : 'low');
+        const secondReaction = extremePivot(recent, head.index, right.index, kind === 'bottom' ? 'high' : 'low');
+        const necklineAtHead = linePrice(firstReaction, secondReaction, head.index);
+        const height = Math.abs(necklineAtHead - head.price);
+        if (height < currentAtr * 1.40) continue;
+        const rightShoulderQuality = kind === 'bottom'
+          ? right.price < Math.min(firstReaction.price, secondReaction.price) + currentAtr * 0.20
+          : right.price > Math.max(firstReaction.price, secondReaction.price) - currentAtr * 0.20;
+        if (!rightShoulderQuality) continue;
+        const age = recent.length - 1 - right.index;
+        const scaleScore = Math.min(height / Math.max(currentAtr, 1), 8) * 18;
+        const similarityScore = (1 - Math.min(shoulderGap / 0.12, 1)) * 12;
+        const recencyScore = Math.max(0, 24 - age) * 0.5;
+        candidates.push({ left, head, right, score: scaleScore + similarityScore + recencyScore + span * 0.05 });
+      }
+    }
+  }
+  return candidates.sort((left, right) => right.score - left.score)[0] ?? null;
+}
+
 function detectSecondLeg(
   closed: Kline[], live: Kline, currentAtr: number, direction: 'bullish' | 'bearish', liveBarClosed: boolean,
 ): WaveStructure | null {
@@ -585,6 +626,20 @@ function technicalForm(
       description: `最近出现反向双缺口，中间孤立 ${island.count} 根K线；右侧缺口边界在 ${formatPrice(island.trigger)}，岛形极值在 ${formatPrice(island.extreme)}。BTC为24小时连续交易，真实缺口罕见，因此该信号只在缺口大于0.05 ATR时保留。`,
       trigger: island.trigger, target: firstTarget, target2: secondTarget, invalidation: island.extreme,
     };
+  }
+
+  const broadHeadAndShoulders = findHeadAndShouldersCandidate(recent, swingPoints, currentAtr, 'top');
+  const broadHeadAndShouldersBottom = findHeadAndShouldersCandidate(recent, swingPoints, currentAtr, 'bottom');
+  const broadCandidates = [
+    broadHeadAndShoulders ? { ...broadHeadAndShoulders, kind: 'top' as const } : null,
+    broadHeadAndShouldersBottom ? { ...broadHeadAndShouldersBottom, kind: 'bottom' as const } : null,
+  ].filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null);
+  const broadCandidate = broadCandidates.sort((left, right) => right.score - left.score)[0];
+  if (broadCandidate) {
+    return headAndShouldersPattern(
+      recent, broadCandidate.left, broadCandidate.head, broadCandidate.right,
+      currentAtr, lastClosed, live, relativeVolume, broadCandidate.kind,
+    );
   }
 
   if (lastHighs.length === 3) {
