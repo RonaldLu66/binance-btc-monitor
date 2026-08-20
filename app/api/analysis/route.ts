@@ -330,6 +330,102 @@ function doublePatternToTechnical(
   };
 }
 
+function extremePivot(bars: Kline[], start: number, end: number, kind: 'high' | 'low'): Pivot {
+  const segment = bars.slice(start, end + 1);
+  const price = kind === 'high'
+    ? Math.max(...segment.map((bar) => bar.high))
+    : Math.min(...segment.map((bar) => bar.low));
+  const offset = segment.findIndex((bar) => kind === 'high' ? bar.high === price : bar.low === price);
+  return { index: start + offset, price, kind };
+}
+
+function linePrice(first: Pivot, second: Pivot, index: number) {
+  const slope = (second.price - first.price) / Math.max(second.index - first.index, 1);
+  return first.price + slope * (index - first.index);
+}
+
+function headAndShouldersPattern(
+  recent: Kline[], left: Pivot, head: Pivot, right: Pivot, currentAtr: number,
+  lastClosed: Kline, live: Kline, relativeVolume: number, kind: 'bottom' | 'top',
+): TechnicalPattern {
+  const bullish = kind === 'bottom';
+  const reactionKind = bullish ? 'high' : 'low';
+  const firstReaction = extremePivot(recent, left.index, head.index, reactionKind);
+  const secondReaction = extremePivot(recent, head.index, right.index, reactionKind);
+  const necklineAtHead = linePrice(firstReaction, secondReaction, head.index);
+  const height = Math.abs(necklineAtHead - head.price);
+  const lastClosedIndex = recent.findIndex((bar) => bar.openTime === lastClosed.openTime);
+  const breakBuffer = currentAtr * 0.10;
+  let breakoutIndex = -1;
+  for (let index = right.index + 1; index <= lastClosedIndex; index += 1) {
+    const neckline = linePrice(firstReaction, secondReaction, index);
+    const broken = bullish
+      ? recent[index].close > neckline + breakBuffer
+      : recent[index].close < neckline - breakBuffer;
+    if (broken) {
+      breakoutIndex = index;
+      break;
+    }
+  }
+  const referenceIndex = breakoutIndex >= 0 ? breakoutIndex : Math.max(lastClosedIndex, right.index);
+  const trigger = linePrice(firstReaction, secondReaction, referenceIndex);
+  const breakoutVolumeRatio = breakoutIndex >= 0
+    ? recent[breakoutIndex].volume / Math.max(average(recent.slice(Math.max(0, breakoutIndex - 20), breakoutIndex).map((bar) => bar.volume)), 1e-9)
+    : null;
+  const priceBroken = breakoutIndex >= 0;
+  const confirmed = bullish
+    ? priceBroken && (breakoutVolumeRatio ?? relativeVolume) >= bullishVolumeThreshold
+    : priceBroken;
+  const target = bullish ? trigger + height : trigger - height;
+  const target2 = bullish ? trigger + height * 2 : trigger - height * 2;
+  const targetReached = bullish ? live.close >= target : live.close <= target;
+  const target2Reached = bullish ? live.close >= target2 : live.close <= target2;
+  const name = bullish ? '头肩底' : '头肩顶';
+  const stage = confirmed
+    ? target2Reached ? '已经确认，第二阶段满足位已到达'
+      : targetReached ? '已经确认，第一阶段满足位已到达'
+        : bullish ? '实体带量突破斜颈线，已经确认' : '实体收盘跌破斜颈线，已经确认'
+    : priceBroken
+      ? bullish ? '实体突破斜颈线但量能不足，未确认' : '实体跌破斜颈线，等待反抽确认'
+      : bullish ? '形态形成，等待实体带量突破斜颈线' : '形态形成，等待实体跌破斜颈线';
+  const calculationText = `头部日期的颈线价 ${formatPrice(necklineAtHead)} − 头部 ${formatPrice(head.price)} = 形态高度 ${formatPrice(height)}；突破日期的颈线价 ${formatPrice(trigger)} ${bullish ? '+' : '−'} ${formatPrice(height)} = 第一阶段 ${formatPrice(target)}。`;
+  const stateText = confirmed
+    ? target2Reached
+      ? `第一阶段 ${formatPrice(target)}、第二阶段 ${formatPrice(target2)} 都已兑现，不能再作为追价依据。`
+      : targetReached
+        ? `第一阶段 ${formatPrice(target)} 已兑现；当前尚未兑现的是第二阶段 ${formatPrice(target2)}。`
+        : `形态已经确认，第一阶段满足位看 ${formatPrice(target)}。`
+    : priceBroken
+      ? bullish
+        ? `突破K线量能为此前20根均量的 ${(breakoutVolumeRatio ?? relativeVolume).toFixed(2)} 倍，未达到 ${bullishVolumeThreshold.toFixed(2)} 倍。`
+        : `已经出现实体跌破，继续看反抽能否收回斜颈线。`
+      : `尚未完成${bullish ? '向上突破' : '向下跌破'}。`;
+  const lineEndIndex = Math.max(referenceIndex, right.index);
+  return {
+    name, stage, direction: bullish ? 'bullish' : 'bearish',
+    description: `左肩 ${formatPrice(left.price)}、头部 ${formatPrice(head.price)}、右肩 ${formatPrice(right.price)}。颈线由 ${formatPrice(firstReaction.price)} 与 ${formatPrice(secondReaction.price)} 两个反弹点连接，不按水平线计算。${calculationText}${stateText}`,
+    trigger, target, target2, invalidation: right.price,
+    points: [
+      { time: recent[left.index].openTime, price: left.price, label: '左肩', position: bullish ? 'belowBar' : 'aboveBar' },
+      { time: recent[head.index].openTime, price: head.price, label: '头部', position: bullish ? 'belowBar' : 'aboveBar' },
+      { time: recent[right.index].openTime, price: right.price, label: '右肩', position: bullish ? 'belowBar' : 'aboveBar' },
+      { time: recent[firstReaction.index].openTime, price: firstReaction.price, label: '颈线点1', position: bullish ? 'aboveBar' : 'belowBar' },
+      { time: recent[secondReaction.index].openTime, price: secondReaction.price, label: '颈线点2', position: bullish ? 'aboveBar' : 'belowBar' },
+    ],
+    trendlines: bullish
+      ? {
+        upper: [firstReaction, secondReaction, { index: lineEndIndex, price: linePrice(firstReaction, secondReaction, lineEndIndex), kind: 'high' as const }]
+          .map((point) => ({ time: recent[point.index].openTime, price: point.price })),
+        lower: [left, head, right].map((point) => ({ time: recent[point.index].openTime, price: point.price })),
+      }
+      : {
+        upper: [left, head, right].map((point) => ({ time: recent[point.index].openTime, price: point.price })),
+        lower: [firstReaction, secondReaction, { index: lineEndIndex, price: linePrice(firstReaction, secondReaction, lineEndIndex), kind: 'low' as const }]
+          .map((point) => ({ time: recent[point.index].openTime, price: point.price })),
+      },
+  };
+}
+
 function detectSecondLeg(
   closed: Kline[], live: Kline, currentAtr: number, direction: 'bullish' | 'bearish', liveBarClosed: boolean,
 ): WaveStructure | null {
@@ -495,31 +591,14 @@ function technicalForm(
     const [left, head, right] = lastHighs;
     const shouldersSimilar = Math.abs(left.price - right.price) / Math.min(left.price, right.price) <= 0.025;
     if (head.price > Math.max(left.price, right.price) * 1.004 && shouldersSimilar) {
-      const neckline = Math.min(...recent.slice(left.index, right.index + 1).map((bar) => bar.low));
-      const height = head.price - neckline;
-      const confirmed = lastClosed.close < neckline;
-      return {
-        name: '头肩顶', stage: confirmed ? '实体收盘跌破颈线，已经确认' : '形态形成，等待实体跌破', direction: 'bearish',
-        description: `左肩 ${formatPrice(left.price)}、头部 ${formatPrice(head.price)}、右肩 ${formatPrice(right.price)}，右肩与左肩相差 ${formatPercent(right.price / left.price - 1)}。颈线在 ${formatPrice(neckline)}，当前价${pricePosition(live.close, neckline)}；${confirmed ? `上一根实体已收在颈线下方，头肩顶成立，量能 ${relativeVolume.toFixed(2)} 倍只决定看空强度，不影响跌破成立。` : `还需实体收盘跌破 ${formatPrice(neckline)}。`}`,
-        trigger: neckline, target: neckline - height, target2: neckline - height * 2, invalidation: right.price,
-        trendlines: { upper: [left, head, right].map((point) => ({ time: recent[point.index].openTime, price: point.price })), lower: [{ time: recent[left.index].openTime, price: neckline }, { time: recent[right.index].openTime, price: neckline }] },
-      };
+      return headAndShouldersPattern(recent, left, head, right, currentAtr, lastClosed, live, relativeVolume, 'top');
     }
   }
   if (lastLows.length === 3) {
     const [left, head, right] = lastLows;
     const shouldersSimilar = Math.abs(left.price - right.price) / Math.min(left.price, right.price) <= 0.025;
     if (head.price < Math.min(left.price, right.price) * 0.996 && shouldersSimilar) {
-      const neckline = Math.max(...recent.slice(left.index, right.index + 1).map((bar) => bar.high));
-      const height = neckline - head.price;
-      const priceBroken = lastClosed.close > neckline;
-      const confirmed = priceBroken && relativeVolume >= bullishVolumeThreshold;
-      return {
-        name: '头肩底', stage: confirmed ? '实体带量突破颈线，已经确认' : priceBroken ? '实体突破但量能不足，未确认' : '形态形成，等待实体带量突破', direction: 'bullish',
-        description: `左肩 ${formatPrice(left.price)}、头部 ${formatPrice(head.price)}、右肩 ${formatPrice(right.price)}，右肩与左肩相差 ${formatPercent(right.price / left.price - 1)}。颈线在 ${formatPrice(neckline)}，当前价${pricePosition(live.close, neckline)}；${confirmed ? '上一根实体已带量收在颈线上方，头肩底成立。' : priceBroken ? `实体虽已收上颈线，但成交量仅 ${relativeVolume.toFixed(2)} 倍，按规则防范假突破。` : `还需实体带量收上 ${formatPrice(neckline)}。`}`,
-        trigger: neckline, target: neckline + height, target2: neckline + height * 2, invalidation: right.price,
-        trendlines: { upper: [{ time: recent[left.index].openTime, price: neckline }, { time: recent[right.index].openTime, price: neckline }], lower: [left, head, right].map((point) => ({ time: recent[point.index].openTime, price: point.price })) },
-      };
+      return headAndShouldersPattern(recent, left, head, right, currentAtr, lastClosed, live, relativeVolume, 'bottom');
     }
   }
 
@@ -678,8 +757,10 @@ function calculatePattern(pattern: TechnicalPattern): PatternCalculation {
 
   const method = pattern.name.includes('收敛三角形')
     ? '突破线加减三角形最宽高度'
-    : pattern.name.includes('头肩') || pattern.name === 'W底' || pattern.name === 'M头'
-    ? '颈线加减形态高度'
+    : pattern.name.includes('头肩')
+      ? '头部日期量高度，再从突破日期的斜颈线投射'
+      : pattern.name === 'W底' || pattern.name === 'M头'
+        ? '颈线加减形态高度'
     : pattern.name.includes('旗形')
       ? '突破线加减前一段旗杆长度'
       : pattern.name.includes('整理区')
@@ -1191,7 +1272,21 @@ export async function GET() {
       makeRoadmapStep('4小时波段目标 T1', [analyses['4h'].technicalForm.target, analyses['1h'].technicalForm.target2], '前方压力全部转为支撑后，才看这一波段满足区。'),
       makeRoadmapStep('日线反转门槛', [analyses['1d'].technicalForm.trigger], `日线实体突破且成交量达到${bullishVolumeThreshold.toFixed(2)}倍均量，反弹才升级为日线反转。`),
       makeRoadmapStep('4小时延伸目标 T2', [analyses['4h'].technicalForm.target2], '只有日线反转门槛确认后，才把这里列为延伸目标。'),
-      makeRoadmapStep('日线第一满足位 T1', [analyses['1d'].technicalForm.target], '属于日线形态满足位，当前阶段不应越级预期。'),
+      makeRoadmapStep(
+        analyses['1d'].technicalForm.direction === 'bullish'
+          && analyses['1d'].technicalForm.target !== null
+          && currentPrice >= analyses['1d'].technicalForm.target
+          ? '日线第二阶段满足位 T2' : '日线第一阶段满足位 T1',
+        [analyses['1d'].technicalForm.direction === 'bullish'
+          && analyses['1d'].technicalForm.target !== null
+          && currentPrice >= analyses['1d'].technicalForm.target
+          ? analyses['1d'].technicalForm.target2 : analyses['1d'].technicalForm.target],
+        analyses['1d'].technicalForm.direction === 'bullish'
+          && analyses['1d'].technicalForm.target !== null
+          && currentPrice >= analyses['1d'].technicalForm.target
+          ? `第一阶段 ${formatPrice(analyses['1d'].technicalForm.target)} 已兑现；这里是按同一形态高度再投射一次的第二阶段，不代表必然到达。`
+          : '属于日线形态第一阶段满足位，尚未到达前不越级预期。',
+      ),
     ];
     const upsideRoadmap = rawUpsideRoadmap.filter((step): step is NonNullable<typeof step> => step !== null)
       .filter((step, index, items) => index === 0 || step.high > items[index - 1].high * 1.001)

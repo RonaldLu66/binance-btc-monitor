@@ -11,7 +11,7 @@ import { numericPosition, type PositionDraft } from './position';
 type Interval = '15m' | '1h' | '4h' | '1d';
 type Bias = 'bullish' | 'bearish' | 'neutral';
 type Pattern = {
-  name: string; direction: Bias; trigger: number | null; target: number | null;
+  name: string; stage: string; direction: Bias; trigger: number | null; target: number | null;
   target2: number | null; invalidation: number | null;
   trendlines?: { upper: Array<{ time: number; price: number }>; lower: Array<{ time: number; price: number }> };
   points?: Array<{ time: number; price: number; label: string; position: 'aboveBar' | 'belowBar' }>;
@@ -148,9 +148,11 @@ export default function MarketChart({
       priceLinesRef.current.push(series.createPriceLine({ price: value, title, color, lineStyle: style, lineWidth: width, axisLabelVisible: true }));
     };
     const form = analysis.technicalForm;
+    const target2Reached = form.stage.includes('第二阶段') && form.stage.includes('已到达');
+    const target1Reached = target2Reached || (form.stage.includes('第一阶段') && form.stage.includes('已到达'));
     addLine(form.trigger, form.direction === 'neutral' ? '上边界' : '确认线', '#62a8df', LineStyle.Solid, 2);
-    addLine(form.target, 'T1', form.direction === 'bearish' ? '#ff718c' : '#35d399', LineStyle.Dashed, 2);
-    addLine(form.target2, 'T2', form.direction === 'bearish' ? '#c8556b' : '#278f70');
+    addLine(form.target, target1Reached ? 'T1已兑现' : 'T1', form.direction === 'bearish' ? '#ff718c' : '#35d399', LineStyle.Dashed, 2);
+    addLine(form.target2, target2Reached ? 'T2已兑现' : target1Reached ? '下一阶段T2' : 'T2', form.direction === 'bearish' ? '#c8556b' : '#278f70');
     addLine(form.invalidation, form.direction === 'neutral' ? '下边界' : '失效', '#ff9b59', LineStyle.Solid, 2);
     addLine(analysis.support20, '支撑', '#3b8f75');
     addLine(analysis.resistance20, '压力', '#a94a60');
@@ -219,7 +221,11 @@ export default function MarketChart({
     </div>
     <div className="chart-reading">
       <div className="chart-reading-title">怎么读这张图</div>
-      <p>{analysis.technicalForm.name === 'W底'
+      <p>{analysis.technicalForm.name === '头肩底'
+        ? '蓝色斜线连接两个反弹高点，是真正颈线；橙色折线连接左肩、头部、右肩。先在头部日期量“颈线到头部”的高度，再从实际突破日的斜颈线价格向上投射。'
+        : analysis.technicalForm.name === '头肩顶'
+          ? '橙色斜线连接两个回落低点，是真正颈线；蓝色折线连接左肩、头部、右肩。先在头部日期量形态高度，再从实际跌破日的斜颈线价格向下投射。'
+        : analysis.technicalForm.name === 'W底'
         ? '橙色折线直接连接左底、颈线高点和右底，形成W；蓝色横线是颈线。实体站上颈线后，重点看回踩能否守住。'
         : analysis.technicalForm.name === 'M头'
           ? '蓝色折线直接连接左顶、颈线低点和右顶，形成M；橙色横线是颈线。只有实体跌破颈线，M头才成立。'

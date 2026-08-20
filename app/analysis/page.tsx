@@ -89,6 +89,8 @@ function CurrentPattern({ item }: { item: IntervalAnalysis }) {
   const form = item.technicalForm;
   const calculation = item.patternCalculation;
   const neutral = form.direction === 'neutral';
+  const target2Reached = form.stage.includes('第二阶段') && form.stage.includes('已到达');
+  const target1Reached = target2Reached || (form.stage.includes('第一阶段') && form.stage.includes('已到达'));
   const waveRank: Record<SecondLegSetup['status'], number> = { pullback: 0, testing: 1, active: 2, target_reached: 3 };
   const activeWave = [item.secondLeg.bullish, item.secondLeg.bearish]
     .filter((wave): wave is SecondLegSetup => wave !== null && wave.status !== 'pullback')
@@ -109,11 +111,11 @@ function CurrentPattern({ item }: { item: IntervalAnalysis }) {
       <div className="current-pattern-state"><span>{calculation.active ? '量度目标已生效' : neutral ? '尚未选择方向' : '等待形态确认'}</span><b>{item.indicatorConfirmation.count}/4 项指标支持</b></div>
       <div className="pattern-level-grid">
         {form.trigger !== null && <div><span>{triggerLabel}</span><strong>{price(form.trigger)}</strong></div>}
-        {form.target !== null && <div><span>{calculation.active ? 'T1' : '确认后 T1'}</span><strong>{price(form.target)}</strong></div>}
-        {form.target2 !== null && <div><span>{calculation.active ? 'T2' : '确认后 T2'}</span><strong>{price(form.target2)}</strong></div>}
+        {form.target !== null && <div><span>{target1Reached ? '第一阶段 · 已兑现' : calculation.active ? '第一阶段 T1' : '确认后 T1'}</span><strong>{price(form.target)}</strong></div>}
+        {form.target2 !== null && <div><span>{target2Reached ? '第二阶段 · 已兑现' : target1Reached ? '当前下一阶段 T2' : calculation.active ? '第二阶段 T2' : '确认后 T2'}</span><strong>{price(form.target2)}</strong></div>}
         {form.invalidation !== null && <div><span>{invalidationLabel}</span><strong>{price(form.invalidation)}</strong></div>}
       </div>
-      <div className="pattern-calculation"><b>{calculation.method}</b>{calculation.formulaT1 && <span>T1：{calculation.formulaT1}</span>}{calculation.formulaT2 && <span>T2：{calculation.formulaT2}</span>}</div>
+      <div className="pattern-calculation"><b>{calculation.method}</b>{calculation.formulaT1 && <span>第一阶段：{calculation.formulaT1}{target1Reached ? '（已兑现）' : ''}</span>}{calculation.formulaT2 && <span>第二阶段：{calculation.formulaT2}{target2Reached ? '（已兑现）' : target1Reached ? '（当前尚未兑现）' : ''}</span>}</div>
     </div>
   </article>;
 }
